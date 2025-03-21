@@ -30,7 +30,7 @@ A web application that helps you discover cocktail recipes based on ingredients 
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/cocktail-vision.git
+   git clone https://github.com/insen5/cocktail-vision.git
    cd cocktail-vision
    ```
 
