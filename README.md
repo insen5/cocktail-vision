@@ -1,6 +1,6 @@
 # Cocktail Vision
 
-A web application that helps you discover cocktail recipes based on ingredients you have available. Simply upload a photo of your bar, fridge, or kitchen, and the app will identify ingredients and suggest cocktails you can make.
+A web application that helps you discover cocktail recipes based on ingredients you have available. Simply upload a photo of your bar, fridge, or kitchen, and the app will identify ingredients and suggest cocktails you can make. Perfect for home bartenders and cocktail enthusiasts!
 
 ## Features
 
