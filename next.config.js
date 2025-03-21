@@ -7,13 +7,13 @@ const nextConfig = {
     config.externals = [...config.externals, { canvas: "canvas" }]; // required to make pdfjs work
     return config;
   },
-  // Enable static export for GitHub Pages deployment
-  output: 'export',
+  // For Vercel deployment, we don't need static export
+  // output: 'export',
   images: {
     unoptimized: true,
   },
-  // Configure base path for GitHub Pages deployment
-  basePath: '/cocktail-vision',
+  // For Vercel deployment, we don't need a base path
+  // basePath: '/cocktail-vision',
 };
 
 module.exports = nextConfig;
