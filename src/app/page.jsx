@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useUpload } from "../utilities/runtime-helpers";
 import { cocktails, allIngredients, findCocktails } from "../data/cocktails";
 import { saveIngredients, loadIngredients, saveFavorites, loadFavorites } from "../utilities/localStorage";
-import { getCustomSuggestions } from "@/utilities/openai-client";
+import { getCustomSuggestions } from "../utilities/openai-client.js";
 
 function MainComponent() {
   const [ingredients, setIngredients] = useState([]);
