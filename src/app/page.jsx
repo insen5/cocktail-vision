@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useUpload } from "../utilities/runtime-helpers";
 import { cocktails, allIngredients, findCocktails } from "../data/cocktails";
 import { saveIngredients, loadIngredients, saveFavorites, loadFavorites } from "../utilities/localStorage";
+import { getCustomSuggestions } from "../utilities/openai-client";
 
 function MainComponent() {
   const [ingredients, setIngredients] = useState([]);
@@ -107,45 +108,80 @@ function MainComponent() {
       reader.onload = async (e) => {
         const base64String = e.target.result.split(",")[1];
 
-        console.log("Sending image to API for analysis...");
         try {
-          const response = await fetch("/api/analyze-image", {
+          // Use OpenAI Vision API directly from the client side
+          const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+          
+          if (!apiKey) {
+            throw new Error("OpenAI API key not found");
+          }
+          
+          console.log("Calling OpenAI Vision API to analyze image...");
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              body: { imageBase64: base64String }
-            }),
+              model: "gpt-4-vision-preview",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a helpful assistant that identifies cocktail ingredients from images. List only the ingredients you can see, separated by commas. Be concise."
+                },
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: "What cocktail ingredients can you identify in this image?" },
+                    {
+                      type: "image_url",
+                      image_url: {
+                        url: `data:image/jpeg;base64,${base64String}`
+                      }
+                    }
+                  ]
+                }
+              ],
+              max_tokens: 300
+            })
           });
-
+          
           if (!response.ok) {
-            const errorText = await response.text();
-            console.error("API response error:", errorText);
-            throw new Error(`Error: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
           }
-
+          
           const data = await response.json();
-          console.log("API response:", data);
-
-          if (data.allDetected) {
-            const detectedIngredients = data.allDetected;
-            const newIngredients = [...ingredients];
-
-            detectedIngredients.forEach((ingredient) => {
-              if (!newIngredients.includes(ingredient)) {
-                newIngredients.push(ingredient);
-              }
+          const ingredientsText = data.choices[0]?.message?.content || "";
+          console.log("Vision API response:", ingredientsText);
+          
+          // Parse ingredients from the response
+          const detectedIngredients = ingredientsText
+            .split(",")
+            .map(item => item.trim())
+            .filter(item => item.length > 0);
+          
+          if (detectedIngredients.length > 0) {
+            // Add detected ingredients to the list
+            setIngredients(prev => {
+              const newIngredients = [...prev];
+              detectedIngredients.forEach(ingredient => {
+                if (!newIngredients.includes(ingredient)) {
+                  newIngredients.push(ingredient);
+                }
+              });
+              return newIngredients;
             });
-
-            setIngredients(newIngredients);
-            saveIngredients(newIngredients); // Save to localStorage
+          } else {
+            setError("No ingredients detected in the image. Please add ingredients manually.");
           }
-        } catch (apiError) {
-          console.error("API error:", apiError);
-          setError("Failed to analyze image with API. Please try adding ingredients manually.");
+        } catch (err) {
+          console.error("Error analyzing image with OpenAI:", err);
+          setError("Failed to analyze image. Please try again or add ingredients manually.");
         }
       };
+      
 
       reader.readAsDataURL(file);
     } catch (error) {
@@ -172,31 +208,17 @@ function MainComponent() {
       const matchedCocktails = findCocktails(ingredients);
       setRecommendations(matchedCocktails);
 
-      // For custom suggestions, we'll use GPT API
+      // For custom suggestions, we'll use client-side OpenAI API
       if (ingredients.length > 0) {
         try {
           console.log("Requesting custom suggestions for ingredients:", ingredients);
-          const response = await fetch("/api/get-custom-suggestions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              ingredients: ingredients,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Custom suggestions API error:", errorText);
-            throw new Error(`Error: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log("Custom suggestions API response:", data);
           
-          if (data.suggestions) {
-            setCustomSuggestions(data.suggestions);
+          // Use the client-side utility instead of the API route
+          const suggestions = await getCustomSuggestions(ingredients);
+          console.log("Custom suggestions response:", suggestions);
+          
+          if (suggestions && suggestions.length > 0) {
+            setCustomSuggestions(suggestions);
           }
         } catch (error) {
           console.error("Error getting custom suggestions:", error);
