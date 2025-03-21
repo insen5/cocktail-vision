@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useUpload } from "../utilities/runtime-helpers";
 import { cocktails, allIngredients, findCocktails } from "../data/cocktails";
 import { saveIngredients, loadIngredients, saveFavorites, loadFavorites } from "../utilities/localStorage";
-// Inline the OpenAI client functionality to avoid import issues
+// OpenAI client functionality is inlined to avoid import issues with Vercel deployment
 
 // Custom suggestions helper function
 async function getCustomSuggestions(ingredients) {
@@ -19,42 +19,56 @@ async function getCustomSuggestions(ingredients) {
   }
 
   // Call OpenAI API to generate custom cocktail suggestions
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
-          Your task is to suggest creative cocktail recipes based on the ingredients provided.`
-        },
-        {
-          role: "user",
-          content: `I have these ingredients: ${ingredients.join(', ')}. 
-          Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
-          that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
-          preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
-          and 'instructions' fields.`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 800
-    })
-  });
+  console.log(`Calling OpenAI API for custom suggestions with ${ingredients.length} ingredients: ${ingredients.join(', ')}`);
+  
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
+            Your task is to suggest creative cocktail recipes based on the ingredients provided.`
+          },
+          {
+            role: "user",
+            content: `I have these ingredients: ${ingredients.join(', ')}. 
+            Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
+            that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
+            preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
+            and 'instructions' fields.`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 800
+      })
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("OpenAI API error:", errorText);
-    throw new Error(`Error: ${response.status}`);
+    console.log(`Custom suggestions API response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Custom suggestions API error response:", errorText);
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+      } catch (e) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+    }
+
+    const data = await response.json();
+    return parseGptResponse(data.choices[0]?.message?.content || "");
+  } catch (error) {
+    console.error("Error in getCustomSuggestions:", error);
+    throw error;
   }
-
-  const data = await response.json();
-  return parseGptResponse(data.choices[0]?.message?.content || "");
 }
 
 // Helper function to parse GPT response
@@ -226,14 +240,11 @@ function MainComponent() {
     setError(null);
 
     try {
-      const { url, error: uploadError } = await upload({ file });
+      // Create a URL for the image preview
+      const imageUrl = URL.createObjectURL(file);
+      setImagePreview(imageUrl);
 
-      if (uploadError) {
-        throw new Error(uploadError);
-      }
-
-      setImagePreview(url);
-
+      // Read the file directly without uploading to server
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64String = e.target.result.split(",")[1];
@@ -243,54 +254,76 @@ function MainComponent() {
           const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
           
           if (!apiKey) {
+            console.error("OpenAI API key not found");
             throw new Error("OpenAI API key not found");
           }
           
           console.log("Calling OpenAI Vision API to analyze image...");
+          console.log(`Image size: ~${Math.round(base64String.length / 1024)}KB`);
+          
+          const requestBody = {
+            model: "gpt-4-vision-preview",
+            messages: [
+              {
+                role: "system",
+                content: "You are a helpful assistant that identifies cocktail ingredients from images. List only the ingredients you can see, separated by commas. Be concise."
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "What cocktail ingredients can you identify in this image?" },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:image/jpeg;base64,${base64String}`
+                    }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 300
+          };
+          
           const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-              model: "gpt-4-vision-preview",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are a helpful assistant that identifies cocktail ingredients from images. List only the ingredients you can see, separated by commas. Be concise."
-                },
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: "What cocktail ingredients can you identify in this image?" },
-                    {
-                      type: "image_url",
-                      image_url: {
-                        url: `data:image/jpeg;base64,${base64String}`
-                      }
-                    }
-                  ]
-                }
-              ],
-              max_tokens: 300
-            })
+            body: JSON.stringify(requestBody)
           });
           
+          console.log("Vision API response status:", response.status);
+        
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+            const errorText = await response.text();
+            console.error("Vision API error response:", errorText);
+            console.error("Vision API error status:", response.status);
+            console.error("Vision API error statusText:", response.statusText);
+            
+            try {
+              const errorData = JSON.parse(errorText);
+              console.error("Vision API parsed error:", JSON.stringify(errorData));
+              throw new Error(`OpenAI Vision API error: ${errorData.error?.message || response.statusText}`);
+            } catch (e) {
+              console.error("Error parsing Vision API error response:", e);
+              throw new Error(`OpenAI Vision API error: ${response.status} ${response.statusText}`);
+            }
           }
-          
+        
           const data = await response.json();
-          const ingredientsText = data.choices[0]?.message?.content || "";
-          console.log("Vision API response:", ingredientsText);
+          console.log("Vision API full response:", JSON.stringify(data));
           
+          const ingredientsText = data.choices[0]?.message?.content || "";
+          console.log("Vision API ingredients text:", ingredientsText);
+        
           // Parse ingredients from the response
           const detectedIngredients = ingredientsText
             .split(",")
             .map(item => item.trim())
             .filter(item => item.length > 0);
+          
+          console.log("Detected ingredients:", detectedIngredients);
           
           if (detectedIngredients.length > 0) {
             // Add detected ingredients to the list
@@ -308,18 +341,19 @@ function MainComponent() {
           }
         } catch (err) {
           console.error("Error analyzing image with OpenAI:", err);
-          setError("Failed to analyze image. Please try again or add ingredients manually.");
+          console.error("Error stack:", err.stack);
+          setError(`Failed to analyze image: ${err.message}. Please try again or add ingredients manually.`);
+        } finally {
+          setIsLoading(false);
         }
       };
       
-
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("Error analyzing image:", error);
       setError(
         "Failed to analyze image. Please try again or add ingredients manually."
       );
-    } finally {
       setIsLoading(false);
     }
   };
@@ -345,13 +379,17 @@ function MainComponent() {
           
           // Use the client-side utility instead of the API route
           const suggestions = await getCustomSuggestions(ingredients);
-          console.log("Custom suggestions response:", suggestions);
+          console.log("Custom suggestions response:", JSON.stringify(suggestions));
           
           if (suggestions && suggestions.length > 0) {
+            console.log(`Received ${suggestions.length} custom cocktail suggestions`);
             setCustomSuggestions(suggestions);
+          } else {
+            console.warn("No custom suggestions returned from API");
           }
         } catch (error) {
           console.error("Error getting custom suggestions:", error);
+          console.error("Error stack:", error.stack);
           // Don't set an error here as we still have the regular recommendations
         }
       }
