@@ -3,7 +3,137 @@ import React, { useState, useEffect } from "react";
 import { useUpload } from "../utilities/runtime-helpers";
 import { cocktails, allIngredients, findCocktails } from "../data/cocktails";
 import { saveIngredients, loadIngredients, saveFavorites, loadFavorites } from "../utilities/localStorage";
-import { getCustomSuggestions } from "../utilities/openai-client.js";
+// Inline the OpenAI client functionality to avoid import issues
+
+// Custom suggestions helper function
+async function getCustomSuggestions(ingredients) {
+  if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+    throw new Error("Ingredients must be a non-empty array");
+  }
+
+  // Check if API key is available
+  const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  if (!apiKey) {
+    console.error("Missing OpenAI API key");
+    throw new Error("API configuration error");
+  }
+
+  // Call OpenAI API to generate custom cocktail suggestions
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
+          Your task is to suggest creative cocktail recipes based on the ingredients provided.`
+        },
+        {
+          role: "user",
+          content: `I have these ingredients: ${ingredients.join(', ')}. 
+          Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
+          that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
+          preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
+          and 'instructions' fields.`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 800
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("OpenAI API error:", errorText);
+    throw new Error(`Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return parseGptResponse(data.choices[0]?.message?.content || "");
+}
+
+// Helper function to parse GPT response
+function parseGptResponse(content) {
+  try {
+    // Try to parse as JSON directly
+    const parsedData = JSON.parse(content);
+    if (Array.isArray(parsedData)) {
+      return parsedData.map(cocktail => ({
+        name: cocktail.name || "Unknown Cocktail",
+        ingredients: cocktail.ingredients || [],
+        instructions: cocktail.instructions || ""
+      }));
+    }
+    
+    // If we got a JSON object but not an array
+    if (parsedData && typeof parsedData === 'object') {
+      if (parsedData.cocktails && Array.isArray(parsedData.cocktails)) {
+        return parsedData.cocktails;
+      }
+    }
+  } catch (e) {
+    console.log("Could not parse GPT response as JSON, trying text parsing");
+  }
+
+  // Fallback: Try to extract cocktail information from text
+  const cocktails = [];
+  const cocktailSections = content.split(/\n\s*\d+\.\s+/);
+  
+  // Skip the first section if it doesn't contain a cocktail (might be intro text)
+  const startIndex = cocktailSections[0].includes("Cocktail") || 
+                    cocktailSections[0].includes("ingredients") ? 0 : 1;
+  
+  for (let i = startIndex; i < cocktailSections.length; i++) {
+    const section = cocktailSections[i].trim();
+    if (!section) continue;
+    
+    // Extract cocktail name (usually the first line or after a number)
+    const nameMatch = section.match(/^([^:\n]+)/);
+    const name = nameMatch ? nameMatch[1].trim() : "Custom Cocktail";
+    
+    // Extract ingredients (usually after "Ingredients:" or between name and instructions)
+    let ingredients = [];
+    const ingredientsMatch = section.match(/Ingredients?:([\s\S]*?)(?:Instructions?:|Preparation:|Directions:|$)/);
+    if (ingredientsMatch) {
+      ingredients = ingredientsMatch[1]
+        .split(/\n|\*|\-|•/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+    }
+    
+    // Extract instructions (usually after "Instructions:" or at the end)
+    let instructions = "";
+    const instructionsMatch = section.match(/(?:Instructions?|Preparation|Directions):([\s\S]*)$/);
+    if (instructionsMatch) {
+      instructions = instructionsMatch[1].trim();
+    } else {
+      // If no explicit instructions section, use the last paragraph
+      const paragraphs = section.split(/\n\s*\n/);
+      if (paragraphs.length > 1) {
+        instructions = paragraphs[paragraphs.length - 1].trim();
+      }
+    }
+    
+    cocktails.push({
+      name,
+      ingredients,
+      instructions
+    });
+  }
+  
+  return cocktails.length > 0 ? cocktails : [
+    {
+      name: "Custom Cocktail",
+      ingredients: ["Based on your ingredients"],
+      instructions: "Could not parse specific instructions from the AI response."
+    }
+  ];
+}
 
 function MainComponent() {
   const [ingredients, setIngredients] = useState([]);
