@@ -1,5 +1,5 @@
 {
-  "name": "create-project",
+  "name": "cocktail-vision",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    
+    "openai": "^4.0.0",
     "react": "^18",
     "react-dom": "^18",
     "next": "14.0.4"
