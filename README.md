@@ -61,7 +61,13 @@ This project is configured for easy deployment to GitHub Pages:
 
 1. Push your code to a GitHub repository
 2. Add your OpenAI API key as a repository secret named `OPENAI_API_KEY`
-3. The GitHub Actions workflow will automatically build and deploy your site
+3. Deploy using one of these methods:
+   - The GitHub Actions workflow will automatically build and deploy your site
+   - Or manually deploy using `npm run deploy`
+
+### Live Demo
+
+The application is deployed and available at: [https://insen5.github.io/cocktail-vision/](https://insen5.github.io/cocktail-vision/)
 
 ## Usage
 
