@@ -38,10 +38,11 @@ function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
     const fileSizeMB = file.size / (1024 * 1024);
     console.log(`Original image size: ${fileSizeMB.toFixed(2)} MB`);
     
-    // If file is larger than 4MB, resize it while maintaining quality
-    if (fileSizeMB > 4) {
+    // If file is larger than 2MB, resize it while maintaining quality
+    // This ensures we stay well under API payload limits
+    if (fileSizeMB > 2) {
       console.log("Image is large, applying smart resizing");
-      return resizeImageSmartly(file);
+      return resizeImageSmartly(file, fileSizeMB);
     }
     
     // For smaller files, use without compression
@@ -54,15 +55,26 @@ function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
   };
   
   // Function to resize large images while maintaining quality
-  const resizeImageSmartly = (file) => {
+  // The fileSizeMB parameter helps determine how aggressive the resizing should be
+  const resizeImageSmartly = (file, fileSizeMB = 0) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
           // Calculate target dimensions - maintain aspect ratio but limit max dimension
-          let maxDimension = 2000; // Max width or height in pixels
-          let quality = 0.9; // High quality JPEG compression
+          // Adjust maxDimension and quality based on original file size
+          let maxDimension = 1500; // Default max width or height in pixels
+          let quality = 0.85; // Default JPEG compression quality
+          
+          // For very large images, be more aggressive with resizing
+          if (fileSizeMB > 6) {
+            maxDimension = 1200;
+            quality = 0.8;
+          } else if (fileSizeMB > 4) {
+            maxDimension = 1350;
+            quality = 0.82;
+          }
           
           let width = img.width;
           let height = img.height;
@@ -124,6 +136,25 @@ function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
       });
       
       if (!response.ok) {
+        // Get more specific error information if available
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            throw new Error(errorData.error);
+          }
+        } catch (jsonError) {
+          // If we can't parse the error JSON, use the status code
+        }
+        
+        // Handle specific HTTP status codes
+        if (response.status === 413) {
+          throw new Error('Image is too large. Please try a smaller image or take a clearer photo.');
+        } else if (response.status === 429) {
+          throw new Error('Too many requests. Please try again in a moment.');
+        } else if (response.status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+        
         throw new Error(`Image analysis failed: ${response.status}`);
       }
       
@@ -135,8 +166,23 @@ function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
       }
     } catch (error) {
       console.error("Error uploading image:", error);
+      
+      // Provide more user-friendly error messages based on the error
+      let userMessage = error.message || "Failed to analyze image";
+      
+      // Check for network-related errors
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        userMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      // Check for specific error messages
+      if (userMessage.includes('FUNCTION_PAYLOAD_TOO_LARGE') || 
+          userMessage.includes('too large')) {
+        userMessage = 'The image is too large. Please try a smaller image or take a clearer photo.';
+      }
+      
       if (onUploadError) {
-        onUploadError(error.message || "Failed to analyze image", imageId);
+        onUploadError(userMessage, imageId);
       }
     } finally {
       setIsUploading(false);

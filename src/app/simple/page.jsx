@@ -59,9 +59,10 @@ function SimpleCocktailPage() {
       }
       setIsLoading(false);
     },
-    onUploadError: (err) => {
-      console.error("Image upload error:", err);
-      setError("Failed to analyze image. Please try again.");
+    onUploadError: (errorMessage) => {
+      console.error("Image upload error:", errorMessage);
+      // Use the specific error message from our improved error handling
+      setError(errorMessage || "Failed to analyze image. Please try again.");
       setIsLoading(false);
     }
   });
@@ -90,21 +91,44 @@ function SimpleCocktailPage() {
     saveIngredients(updatedIngredients);
   };
 
-  // Reference to the file input element
+  // State for camera stream
+  const [cameraStream, setCameraStream] = React.useState(null);
+  const videoRef = React.useRef(null);
   const fileInputRef = React.useRef(null);
+  const cameraInputRef = React.useRef(null);
   
-  const handlePhotoUpload = () => {
-    // Use the reference to click the hidden file input
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+  // Function to detect if we're on a mobile device
+  const isMobile = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   };
   
+  // Function to handle file selection
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       uploadImage(e.target.files[0]);
       // Reset the input value to allow selecting the same file again
       e.target.value = '';
+    }
+  };
+  
+  // Function to open file picker
+  const handleFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Function to open camera - now simplified since we use a dedicated input
+  const handlePhotoUpload = () => {
+    // Simply click the camera input element
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
+    } else {
+      // Fallback to regular file input if camera input isn't available
+      console.warn('Camera input not available, falling back to file input');
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     }
   };
 
@@ -246,20 +270,20 @@ function SimpleCocktailPage() {
           
           <div className="mb-6">
             <p className="mb-2">Snap a photo of your fridge or bar</p>
-            {/* Hidden file input elements - one with capture, one without for better mobile compatibility */}
+            {/* Hidden file input for fallback */}
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               ref={fileInputRef}
               onChange={handleFileChange}
               className="hidden"
-              aria-label="Take photo with camera"
-              id="camera-with-capture"
+              aria-label="Upload photo"
+              id="file-input"
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {/* Camera button - this will trigger the camera input */}
               <button
-                onClick={handlePhotoUpload}
+                onClick={() => cameraInputRef.current?.click()}
                 className="bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg flex items-center justify-center gap-2 transition"
                 disabled={isLoading || isUploading}
               >
@@ -267,7 +291,18 @@ function SimpleCocktailPage() {
                 <span>Open Camera</span>
               </button>
               
-              {/* Alternative button for browsers that don't support capture attribute */}
+              {/* Hidden camera input with capture attribute */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={isLoading || isUploading}
+              />
+              
+              {/* File upload button for selecting from gallery */}
               <label 
                 htmlFor="file-upload" 
                 className="bg-purple-600 hover:bg-purple-700 py-3 rounded-lg flex items-center justify-center gap-2 transition cursor-pointer"
@@ -342,8 +377,18 @@ function SimpleCocktailPage() {
         </div>
 
         {error && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-8 text-center">
-            {error}
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-8 text-center animate-pulse">
+            <div className="flex items-center justify-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-300" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>{error}</span>
+            </div>
+            {(error.includes('too large') || error.includes('FUNCTION_PAYLOAD_TOO_LARGE')) && (
+              <p className="text-sm mt-2 text-red-300">
+                Try taking a clearer photo with better lighting, or choose a smaller image.
+              </p>
+            )}
           </div>
         )}
 
