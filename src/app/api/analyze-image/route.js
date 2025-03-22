@@ -15,27 +15,12 @@ export async function POST(request) {
       );
     }
 
-    // First try with Claude API (primary)
+    // First try with Groq API (primary)
     let ingredients = [];
     let success = false;
     
-    // Check if Claude API key is available
-    if (process.env.CLAUDE_API_KEY) {
-      try {
-        console.log("Attempting to analyze image with Claude API");
-        ingredients = await analyzeWithClaude(imageBase64);
-        success = true;
-        console.log("Successfully analyzed image with Claude API");
-      } catch (claudeError) {
-        console.error("Error with Claude API:", claudeError.message);
-        // Continue to fallback
-      }
-    } else {
-      console.warn("Claude API key not configured");
-    }
-    
-    // Fallback to Groq if Claude failed
-    if (!success && process.env.GROQ_API_KEY) {
+    // Check if Groq API key is available
+    if (process.env.GROQ_API_KEY) {
       try {
         console.log("Attempting to analyze image with Groq API");
         ingredients = await analyzeWithGroq(imageBase64);
@@ -43,9 +28,24 @@ export async function POST(request) {
         console.log("Successfully analyzed image with Groq API");
       } catch (groqError) {
         console.error("Error with Groq API:", groqError.message);
+        // Continue to fallback
+      }
+    } else {
+      console.warn("Groq API key not configured");
+    }
+    
+    // Fallback to Claude if Groq failed
+    if (!success && process.env.CLAUDE_API_KEY) {
+      try {
+        console.log("Attempting to analyze image with Claude API");
+        ingredients = await analyzeWithClaude(imageBase64);
+        success = true;
+        console.log("Successfully analyzed image with Claude API");
+      } catch (claudeError) {
+        console.error("Error with Claude API:", claudeError.message);
       }
     } else if (!success) {
-      console.warn("Groq API key not configured for fallback");
+      console.warn("Claude API key not configured for fallback");
     }
     
     if (!success) {
@@ -80,14 +80,34 @@ async function analyzeWithGroq(imageBase64) {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that identifies cocktail ingredients from images. Your task is to identify specific ingredients and brands that you can confidently recognize in the image. Include brand names when possible and be reasonably confident in your identifications, but you can include ingredients that are partially visible or somewhat obscured. Do not include completely random ingredients with no visual basis. List ingredients separated by commas."
+          content: "You are an expert at identifying cocktail ingredients, beverages, and food items from images. Your task is to identify specific ingredients, beverages, and brands that you can clearly see in the image. Be precise and accurate with your identifications."
         },
         {
           role: "user",
-          content: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify specific ingredients and brands that you can confidently recognize in the image. Include full brand names when you can identify them (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka'). For bar shelves, identify bottles with their brand names when possible. For kitchen/fridge items, identify food items with their brands when visible. You can include ingredients you're reasonably confident about, even if they're partially visible or somewhat obscured. DO NOT include completely random ingredients with no visual basis. Respond ONLY with a comma-separated list of ingredients.`
+          content: `This is an image of ingredients and beverages that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated].
+
+Your task is to identify specific ingredients, beverages, and brands that you can clearly see in the image.
+
+RULES TO FOLLOW:
+1. List ONLY items that are CLEARLY VISIBLE in the image
+2. Include full brand names when possible (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka', 'Fever-Tree Tonic Water')
+3. For alcoholic beverages: Identify bottles with their complete brand names and types
+4. For non-alcoholic beverages: Identify with brand names when visible (e.g., 'Coca-Cola', 'Schweppes Ginger Ale')
+5. For fresh ingredients: Be specific (e.g., 'Fresh lime', 'Maraschino cherries', 'Angostura bitters')
+6. DO NOT guess or hallucinate brands that aren't clearly visible
+7. If you're uncertain about a brand but can see the type of spirit/beverage, just list the generic type
+8. Format your response as a simple comma-separated list
+
+EXAMPLES OF GOOD RESPONSES:
+- "Tito's Vodka, lime, simple syrup, ice"
+- "Hendrick's Gin, Fever-Tree Tonic Water, cucumber"
+- "lemons, limes, oranges, sugar"
+- "Jack Daniel's Whiskey, Coca-Cola, ice cubes"
+
+DO NOT include explanations, observations, or anything other than the ingredient list.`
         }
       ],
-      max_tokens: 300
+      max_tokens: 500
     })
   });
 
@@ -115,30 +135,32 @@ async function analyzeWithClaude(imageBase64) {
     },
     body: JSON.stringify({
       model: "claude-3.7-sonnet-20240229",
-      max_tokens: 300,
+      max_tokens: 500,
       messages: [
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Your task is to identify specific ingredients and brands that you can confidently recognize in the image. This is for a cocktail recipe app, so accuracy is important, but we want to include all relevant ingredients you can identify with reasonable confidence.
+              text: `Your task is to identify specific ingredients, beverages, and brands that you can clearly see in the image. This is for a cocktail recipe app, so accuracy is critical.
 
-Rules to follow:
-1. Include full brand names when you can identify them (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka', 'Fever-Tree Tonic Water')
-2. For bar shelves: Identify bottles with their brand names and types when possible
-3. For kitchen/fridge: Identify food items with their brands when visible
-4. Include descriptive details when relevant (e.g., 'Fresh lime', 'Maraschino cherries', 'Angostura bitters')
-5. You can include ingredients you're reasonably confident about, even if they're partially visible or somewhat obscured
-6. DO NOT include completely random ingredients or pure guesses with no visual basis
-7. Respond ONLY with a comma-separated list of ingredients - no explanations or other text
+RULES TO FOLLOW:
+1. List ONLY items that are CLEARLY VISIBLE in the image
+2. Include full brand names when possible (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka', 'Fever-Tree Tonic Water')
+3. For alcoholic beverages: Identify bottles with their complete brand names and types
+4. For non-alcoholic beverages: Identify with brand names when visible (e.g., 'Coca-Cola', 'Schweppes Ginger Ale')
+5. For fresh ingredients: Be specific (e.g., 'Fresh lime', 'Maraschino cherries', 'Angostura bitters')
+6. DO NOT guess or hallucinate brands that aren't clearly visible
+7. If you're uncertain about a brand but can see the type of spirit/beverage, just list the generic type
+8. Format your response as a simple comma-separated list
 
-Examples of good responses:
-- "Tanqueray Gin, Fever-Tree Tonic Water, Fresh lime, Ice cubes"
-- "Maker's Mark Bourbon, Angostura bitters, Sugar cubes, Luxardo Maraschino cherries"
-- "Coca-Cola, Bacardi White Rum, Fresh mint leaves, Lime wedges"
+EXAMPLES OF GOOD RESPONSES:
+- "Tito's Vodka, lime, simple syrup, ice"
+- "Hendrick's Gin, Fever-Tree Tonic Water, cucumber"
+- "lemons, limes, oranges, sugar"
+- "Jack Daniel's Whiskey, Coca-Cola, ice cubes"
 
-Now, list the ingredients you can confidently identify in the image, separated by commas.`
+DO NOT include explanations, observations, or anything other than the ingredient list.`
             },
             {
               type: "image",
