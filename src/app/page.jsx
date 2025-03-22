@@ -346,13 +346,13 @@ function MainComponent() {
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-2">
-            Cocktail Vision
+            AI Bartender/Cocktail Maker
           </h1>
           <p className="text-xl opacity-80 mb-1">
-            Discover cocktails you can make with what you have
+            Discover classic and unique cocktail recipes with just a photo
           </p>
           <p className="text-sm opacity-60 italic">
-            - by insen (please enjoy responsibly)
+            By insen (please enjoy responsibly)
           </p>
         </header>
 
@@ -539,13 +539,43 @@ function MainComponent() {
                               </h5>
                               <ul className="list-disc list-inside">
                                 {Array.isArray(cocktail.ingredients) ? (
-                                  cocktail.ingredients.map((ingredient, idx) => (
-                                    <li key={idx} className="text-white">
-                                      {typeof ingredient === 'object' && ingredient.name
-                                        ? `${ingredient.amount || ''} ${ingredient.unit || ''} ${ingredient.name}`.trim()
-                                        : ingredient}
-                                    </li>
-                                  ))
+                                  cocktail.ingredients.map((ingredient, idx) => {
+                                    // Handle different formats of ingredient data
+                                    let formattedIngredient = '';
+                                    
+                                    if (typeof ingredient === 'string') {
+                                      // If it's already a string, use it directly
+                                      formattedIngredient = ingredient;
+                                    } else if (typeof ingredient === 'object') {
+                                      // Handle objects with different property formats
+                                      if (ingredient.name) {
+                                        // Format: {name: "Vodka", amount: 2, unit: "oz"}
+                                        const amount = ingredient.amount || ingredient.measure || '';
+                                        const unit = ingredient.unit || '';
+                                        formattedIngredient = `${amount} ${unit} ${ingredient.name}`.trim().replace(/\s+/g, ' ');
+                                      } else if (ingredient.ingredient) {
+                                        // Format: {ingredient: "Vodka", quantity: "2 oz"}
+                                        const quantity = ingredient.quantity || ingredient.amount || '';
+                                        formattedIngredient = `${quantity} ${ingredient.ingredient}`.trim();
+                                      } else {
+                                        // If it's an object but doesn't match known formats, stringify it
+                                        // But clean it up first by removing quotes and braces
+                                        formattedIngredient = JSON.stringify(ingredient)
+                                          .replace(/[{}"\']/g, '')
+                                          .replace(/,/g, ', ')
+                                          .replace(/:/g, ': ');
+                                      }
+                                    } else {
+                                      // Fallback for any other type
+                                      formattedIngredient = String(ingredient);
+                                    }
+                                    
+                                    return (
+                                      <li key={idx} className="text-white">
+                                        {formattedIngredient}
+                                      </li>
+                                    );
+                                  })
                                 ) : (
                                   <li className="text-white">Ingredients not specified</li>
                                 )}
