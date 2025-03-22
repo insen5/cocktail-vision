@@ -63,7 +63,9 @@ async function getGroqSuggestions(ingredients) {
         {
           role: "system",
           content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
-          Your task is to suggest creative cocktail recipes based on the ingredients provided.`
+          Your task is to suggest creative cocktail recipes based on the ingredients provided.
+          Focus only on providing detailed recipes with ingredients, measurements, and instructions.
+          Do not include any references to YouTube videos or tutorials.`
         },
         {
           role: "user",
@@ -122,7 +124,9 @@ async function getClaudeSuggestions(ingredients) {
           Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
           that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
           preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
-          and 'instructions' fields.`
+          and 'instructions' fields.
+          
+          IMPORTANT: Focus only on providing detailed recipes. Do not include any references to YouTube videos or tutorials.`
         }
       ]
     })
@@ -135,7 +139,17 @@ async function getClaudeSuggestions(ingredients) {
   }
 
   const data = await response.json();
-  return parseAIResponse(data.content[0]?.text || "");
+  
+  // Check if the response has the expected structure
+  if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
+    console.error("Unexpected Claude API response structure:", JSON.stringify(data));
+    // Return a default response or throw an error
+    return parseAIResponse("");
+  }
+  
+  // Safely access the text property
+  const text = data.content[0]?.text || "";
+  return parseAIResponse(text);
 }
 
 /**
@@ -148,11 +162,15 @@ function parseAIResponse(content) {
     // Try to parse as JSON directly
     const parsedData = JSON.parse(content);
     if (Array.isArray(parsedData)) {
-      return parsedData.map(cocktail => ({
-        name: cocktail.name || "Unknown Cocktail",
-        ingredients: cocktail.ingredients || [],
-        instructions: cocktail.instructions || ""
-      }));
+      return parsedData.map(cocktail => {
+        // Extract only the fields we need, explicitly excluding youtubeVideos
+        return {
+          name: cocktail.name || "Unknown Cocktail",
+          ingredients: cocktail.ingredients || [],
+          instructions: cocktail.instructions || ""
+          // YouTube videos section removed
+        };
+      });
     }
     
     // If we got a JSON object but not an array
@@ -162,6 +180,7 @@ function parseAIResponse(content) {
           name: cocktail.name || "Unknown Cocktail",
           ingredients: cocktail.ingredients || [],
           instructions: cocktail.instructions || ""
+          // YouTube videos section removed
         }));
       }
     }

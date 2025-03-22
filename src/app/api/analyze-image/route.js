@@ -137,7 +137,15 @@ async function analyzeWithClaude(imageBase64) {
   }
 
   const data = await response.json();
-  const content = data.content[0].text;
+  
+  // Check if the response has the expected structure
+  if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
+    console.error("Unexpected Claude API response structure:", JSON.stringify(data));
+    return [];
+  }
+  
+  // Safely access the text property
+  const content = data.content[0]?.text || "";
   console.log("Claude API response content:", content);
 
   // Parse the ingredients from the response
