@@ -15,8 +15,11 @@ A web application that helps you discover cocktail recipes based on ingredients 
 
 - **Frontend**: Next.js, React, TailwindCSS
 - **State Management**: React Hooks with localStorage for persistence
-- **AI Integration**: OpenAI GPT-4 Vision for image analysis and GPT-4 for custom recipe generation
-- **Deployment**: GitHub Pages
+- **AI Integration**: 
+  - Groq API (primary) with Llama 3 8B model for custom recipe generation
+  - Claude API (fallback) with Haiku model for custom recipe generation
+  - Secure server-side API implementation for enhanced security
+- **Deployment**: Vercel
 
 ## Getting Started
 
@@ -24,7 +27,8 @@ A web application that helps you discover cocktail recipes based on ingredients 
 
 - Node.js (v18 or later)
 - NPM or Yarn
-- OpenAI API Key for AI features
+- Groq API Key (primary) - Get one at https://console.groq.com/
+- Claude API Key (fallback) - Get one at https://console.anthropic.com/
 
 ### Installation
 
@@ -41,9 +45,10 @@ A web application that helps you discover cocktail recipes based on ingredients 
    yarn install
    ```
 
-3. Create a `.env.local` file in the root directory and add your OpenAI API key
+3. Create a `.env.local` file in the root directory and add your API keys
    ```
-   OPENAI_API_KEY=your_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
+   CLAUDE_API_KEY=your_claude_api_key_here
    ```
 
 4. Start the development server
