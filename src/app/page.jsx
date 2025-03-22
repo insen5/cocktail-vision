@@ -569,7 +569,7 @@ function MainComponent() {
                               <h5 className="font-semibold mb-2 text-purple-300">
                                 Ingredients:
                               </h5>
-                              <ul className="list-disc list-inside">
+                              <ul className="list-disc list-inside space-y-1">
                                 {Array.isArray(cocktail.ingredients) ? (
                                   cocktail.ingredients.map((ingredient, idx) => {
                                     // Handle different formats of ingredient data
@@ -659,6 +659,10 @@ function MainComponent() {
                                       .replace(/Instructions:/gi, '')
                                       .replace(/```/g, '')
                                       .replace(/\{|\}/g, '')
+                                      .replace(/"instructions":/gi, '')
+                                      .replace(/,$/g, '')
+                                      .replace(/^\s*"/, '')
+                                      .replace(/"\s*$/, '')
                                       .trim()
                                   : 'Instructions not available'}
                               </p>
@@ -671,23 +675,58 @@ function MainComponent() {
                                   Video Tutorials:
                                 </h5>
                                 <div className="space-y-3">
-                                  {cocktail.youtubeVideos.slice(0, 2).map((video, videoIndex) => (
-                                    <div key={videoIndex} className="rounded-lg overflow-hidden">
-                                      <div className="relative pb-[56.25%] h-0 overflow-hidden bg-gray-800">
-                                        <iframe 
-                                          className="absolute top-0 left-0 w-full h-full" 
-                                          src={`https://www.youtube.com/embed/${video.id}`}
-                                          title={video.title || `${cocktail.name} Tutorial ${videoIndex + 1}`}
-                                          frameBorder="0" 
-                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                          allowFullScreen
-                                        ></iframe>
+                                  {cocktail.youtubeVideos.slice(0, 2).map((video, videoIndex) => {
+                                    // Skip invalid video IDs or objects
+                                    if (!video || typeof video !== 'object' || !video.id) {
+                                      return null;
+                                    }
+                                    
+                                    // Clean up video ID if it contains JSON artifacts
+                                    const videoId = typeof video.id === 'string' 
+                                      ? video.id
+                                          .replace(/\\\\n/g, '')
+                                          .replace(/\\\\r/g, '')
+                                          .replace(/\\\\t/g, '')
+                                          .replace(/\\\\'/g, '')
+                                          .replace(/\\\\"/g, '')
+                                          .replace(/"/g, '')
+                                          .replace(/,/g, '')
+                                          .replace(/}/g, '')
+                                          .replace(/{/g, '')
+                                          .trim()
+                                      : video.id;
+                                      
+                                    // Clean up video title
+                                    const videoTitle = video.title && typeof video.title === 'string'
+                                      ? video.title
+                                          .replace(/\\\\n/g, '')
+                                          .replace(/\\\\r/g, '')
+                                          .replace(/\\\\t/g, '')
+                                          .replace(/\\\\'/g, '')
+                                          .replace(/\\\\"/g, '')
+                                          .replace(/"/g, '')
+                                          .replace(/,/g, '')
+                                          .replace(/}/g, '')
+                                          .replace(/{/g, '')
+                                          .trim()
+                                      : `${cocktail.name} Tutorial ${videoIndex + 1}`;
+                                    
+                                    return (
+                                      <div key={videoIndex} className="rounded-lg overflow-hidden">
+                                        <div className="relative pb-[56.25%] h-0 overflow-hidden bg-gray-800">
+                                          <iframe 
+                                            className="absolute top-0 left-0 w-full h-full" 
+                                            src={`https://www.youtube.com/embed/${videoId}`}
+                                            title={videoTitle}
+                                            frameBorder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowFullScreen
+                                          ></iframe>
+                                        </div>
+                                        <p className="text-sm text-gray-300 mt-1 px-1">{videoTitle}</p>
                                       </div>
-                                      {video.title && (
-                                        <p className="text-sm text-gray-300 mt-1 px-1">{video.title}</p>
-                                      )}
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
