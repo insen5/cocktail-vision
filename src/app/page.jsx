@@ -62,12 +62,22 @@ function MainComponent() {
   const [favorites, setFavorites] = useState([]);
 
   useEffect(() => {
-    // Load ingredients and favorites from localStorage
-    const savedIngredients = loadIngredients();
-    if (savedIngredients && savedIngredients.length > 0) {
-      setIngredients(savedIngredients);
+    // Check if this is a page refresh (not an initial load)
+    const isPageRefresh = window.performance && window.performance.navigation.type === 1;
+    
+    if (isPageRefresh) {
+      // Clear ingredients on page refresh
+      setIngredients([]);
+      saveIngredients([]);
+    } else {
+      // Load ingredients and favorites from localStorage only on initial load
+      const savedIngredients = loadIngredients();
+      if (savedIngredients && savedIngredients.length > 0) {
+        setIngredients(savedIngredients);
+      }
     }
     
+    // Always load favorites
     const savedFavorites = loadFavorites();
     if (savedFavorites && savedFavorites.length > 0) {
       setFavorites(savedFavorites);
@@ -247,7 +257,7 @@ function MainComponent() {
       const matchedCocktails = findCocktails(ingredients);
       setRecommendations(matchedCocktails);
 
-      // For custom suggestions, we'll use client-side OpenAI API
+      // For custom suggestions, we'll use the API
       if (ingredients.length > 0) {
         try {
           console.log("Requesting custom suggestions for ingredients:", ingredients);
@@ -287,9 +297,13 @@ function MainComponent() {
     setActiveTab("input");
     setError(null);
     
-    // Clear localStorage
+    // Clear localStorage completely
     saveIngredients([]);
-    saveFavorites([]);
+    localStorage.removeItem('cocktail_vision_ingredients');
+    
+    // Keep favorites unless explicitly requested to clear them
+    // saveFavorites([]);
+    // localStorage.removeItem('cocktail_vision_favorites');
   };
 
   const toggleFavorite = async (cocktailId) => {
@@ -499,7 +513,60 @@ function MainComponent() {
               </div>
             ) : (
               <div>
-                {recommendations.length > 0 && (
+                {/* Show custom suggestions if available, otherwise show stock recommendations */}
+                {customSuggestions.length > 0 ? (
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold mb-4">
+                      AI Bartender Recommendations
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {customSuggestions.map((cocktail, index) => (
+                        <div key={cocktail.id || `custom-${index}`} className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg overflow-hidden border border-purple-500">
+                          <div className="p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                <span className="text-lg">✨</span>
+                              </div>
+                              <h4 className="text-lg font-bold">
+                                {cocktail.name}
+                              </h4>
+                            </div>
+                            
+                            {/* Ingredients Section */}
+                            <div className="mb-4">
+                              <h5 className="font-semibold mb-2 text-purple-300">
+                                Ingredients:
+                              </h5>
+                              <ul className="list-disc list-inside">
+                                {Array.isArray(cocktail.ingredients) ? (
+                                  cocktail.ingredients.map((ingredient, idx) => (
+                                    <li key={idx} className="text-white">
+                                      {typeof ingredient === 'object' && ingredient.name
+                                        ? `${ingredient.amount || ''} ${ingredient.unit || ''} ${ingredient.name}`.trim()
+                                        : ingredient}
+                                    </li>
+                                  ))
+                                ) : (
+                                  <li className="text-white">Ingredients not specified</li>
+                                )}
+                              </ul>
+                            </div>
+                            
+                            {/* Instructions Section */}
+                            <div>
+                              <h5 className="font-semibold mb-2 text-purple-300">
+                                Instructions:
+                              </h5>
+                              <p className="text-white whitespace-pre-line">
+                                {cocktail.instructions}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (recommendations.length > 0 && (
                   <div className="mb-8">
                     <h3 className="text-xl font-semibold mb-4">
                       Recommended Cocktails
@@ -664,28 +731,9 @@ function MainComponent() {
                       ))}
                     </div>
                   </div>
-                )}
+                ))}
 
-                {customSuggestions.length > 0 && (
-                  <div className="mb-8">
-                    <h3 className="text-xl font-semibold mb-4">
-                      Custom Suggestions
-                    </h3>
-                    <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-5">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                          <span className="text-lg">✨</span>
-                        </div>
-                        <h4 className="text-lg font-bold">
-                          AI Bartender Suggestions
-                        </h4>
-                      </div>
-                      <div className="whitespace-pre-line">
-                        {customSuggestions[0].instructions}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Custom suggestions section removed as it's now handled in the conditional above */}
 
                 <div className="text-center mt-8">
                   <button
