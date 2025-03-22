@@ -32,16 +32,16 @@ function useHandleStreamResponse({
 function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
   const [isUploading, setIsUploading] = React.useState(false);
   
-  const uploadImage = React.useCallback(async (file) => {
+  const uploadImage = React.useCallback(async (file, imageId) => {
     if (!file) {
       console.error("No file provided");
-      if (onUploadError) onUploadError("No file provided");
+      if (onUploadError) onUploadError("No file provided", imageId);
       return;
     }
     
     try {
       setIsUploading(true);
-      if (onUploadStart) onUploadStart();
+      if (onUploadStart) onUploadStart(imageId);
       
       // Convert the file to base64
       const base64 = await new Promise((resolve, reject) => {
@@ -68,12 +68,12 @@ function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
       console.log("Image analysis response:", data);
       
       if (onUploadComplete) {
-        onUploadComplete(data.allDetected || []);
+        onUploadComplete(data.allDetected || [], imageId);
       }
     } catch (error) {
       console.error("Error uploading image:", error);
       if (onUploadError) {
-        onUploadError(error.message || "Failed to analyze image");
+        onUploadError(error.message || "Failed to analyze image", imageId);
       }
     } finally {
       setIsUploading(false);
