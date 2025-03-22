@@ -211,47 +211,99 @@ function parseAIResponse(content) {
       cocktails = parsedData.map((cocktail, index) => {
         // Clean and sanitize each field
         const sanitizedName = typeof cocktail.name === 'string' ? 
-          cocktail.name.replace(/["{}\[\]]/g, '').trim() : "Unknown Cocktail";
+          cocktail.name
+            .replace(/["{}\[\]]/g, '')
+            .replace(/\\n|\\r|\\t/g, '')
+            .replace(/\\'/g, "'")
+            .replace(/\\"/g, '"')
+            .trim() : "Unknown Cocktail";
           
         // Handle ingredients array
         let sanitizedIngredients = [];
         if (Array.isArray(cocktail.ingredients)) {
           sanitizedIngredients = cocktail.ingredients.map(ingredient => {
             if (typeof ingredient === 'string') {
-              return ingredient.replace(/["{}\[\]]/g, '').trim();
+              return ingredient
+                .replace(/["{}\[\]]/g, '')
+                .replace(/\\n|\\r|\\t/g, '')
+                .replace(/\\'/g, "'")
+                .replace(/\\"/g, '"')
+                .replace(/"[a-z]+":|[a-z]+:/gi, '') // Remove field names
+                .trim();
             } else if (typeof ingredient === 'object' && ingredient !== null) {
               // Handle object format
               const name = ingredient.name || '';
               const amount = ingredient.amount || ingredient.quantity || '';
               const unit = ingredient.unit || '';
-              return `${amount} ${unit} ${name}`.trim().replace(/\s+/g, ' ');
+              return `${amount} ${unit} ${name}`
+                .trim()
+                .replace(/\s+/g, ' ')
+                .replace(/["{}\[\]]/g, '');
             }
-            return String(ingredient);
+            return String(ingredient).replace(/["{}\[\]]/g, '').trim();
           });
         } else if (typeof cocktail.ingredients === 'string') {
-          sanitizedIngredients = [cocktail.ingredients.replace(/["{}\[\]]/g, '').trim()];
+          sanitizedIngredients = [cocktail.ingredients
+            .replace(/["{}\[\]]/g, '')
+            .replace(/\\n|\\r|\\t/g, '')
+            .replace(/\\'/g, "'")
+            .replace(/\\"/g, '"')
+            .replace(/"[a-z]+":|[a-z]+:/gi, '') // Remove field names
+            .trim()];
         }
         
         // Clean instructions
         const sanitizedInstructions = typeof cocktail.instructions === 'string' ?
           cocktail.instructions
+            // Remove JSON formatting
             .replace(/["{}\[\]]/g, '')
-            .replace(/"instructions":/gi, '')
+            .replace(/"instructions":|instructions:/gi, '')
+            // Handle escaped characters
             .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '')
+            .replace(/\\t/g, ' ')
+            .replace(/\\'/g, "'")
+            .replace(/\\"/g, '"')
+            // Remove redundant labels
+            .replace(/Instructions:|Method:|Preparation:|Steps:/gi, '')
             .trim() : "";
             
         // Handle YouTube videos
         let sanitizedVideos = [];
         if (Array.isArray(cocktail.youtubeVideos)) {
           sanitizedVideos = cocktail.youtubeVideos
+            // Only process valid video objects
             .filter(video => video && typeof video === 'object')
+            // Limit to top 2 videos
             .slice(0, 2)
-            .map(video => ({
-              id: typeof video.id === 'string' ? 
-                video.id.replace(/["{}\[\],]/g, '').trim() : "",
-              title: typeof video.title === 'string' ? 
-                video.title.replace(/["{}\[\],]/g, '').trim() : ""
-            }));
+            .map(video => {
+              // Thoroughly clean video ID
+              const cleanId = typeof video.id === 'string' ? 
+                video.id
+                  .replace(/["{}\[\],]/g, '')
+                  .replace(/\\n|\\r|\\t/g, '')
+                  .replace(/\\'/g, "'")
+                  .replace(/\\"/g, '"')
+                  .replace(/"id":|id:|"youtubeVideos":|youtubeVideos:/gi, '')
+                  .trim() : "";
+                  
+              // Thoroughly clean video title
+              const cleanTitle = typeof video.title === 'string' ? 
+                video.title
+                  .replace(/["{}\[\],]/g, '')
+                  .replace(/\\n|\\r|\\t/g, '')
+                  .replace(/\\'/g, "'")
+                  .replace(/\\"/g, '"')
+                  .replace(/"title":|title:/gi, '')
+                  .trim() : "";
+                  
+              return {
+                id: cleanId,
+                title: cleanTitle
+              };
+            })
+            // Filter out videos with invalid IDs after cleaning
+            .filter(video => video.id && video.id.length > 3);
         }
         
         return {

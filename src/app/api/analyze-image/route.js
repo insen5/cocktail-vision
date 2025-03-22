@@ -156,13 +156,31 @@ function parseIngredientsFromResponse(content) {
       ingredients = content
         .split(/,|\n/)
         .map((item) => item.trim())
-        .filter(
-          (item) =>
-            item.length > 0 &&
+        .filter((item) => {
+          // Only keep actual ingredients, filter out AI responses and sentences
+          return item.length > 0 && 
+            // Filter out common AI responses
             !item.toLowerCase().includes("i don't see") &&
-            !item.toLowerCase().includes("cannot identify")
-        )
-        .map((item) => item.replace(/^[\s\u2022\-\u2013\u2014*]+|^[0-9]+\.?\s*/g, ""));
+            !item.toLowerCase().includes("cannot identify") &&
+            !item.toLowerCase().includes("i can help") &&
+            !item.toLowerCase().includes("i can see") &&
+            !item.toLowerCase().includes("here are") &&
+            !item.toLowerCase().includes("the ingredients") &&
+            !item.toLowerCase().includes("please let me") &&
+            !item.toLowerCase().includes("based on") &&
+            !item.toLowerCase().includes("following ingredients") &&
+            !item.toLowerCase().includes("let me know") &&
+            !item.toLowerCase().includes("need more") &&
+            // Filter out sentences (more than 3 words)
+            item.split(/\s+/).length <= 3;
+        })
+        .map((item) => {
+          // Clean up any remaining formatting
+          return item
+            .replace(/^[\s\u2022\-\u2013\u2014*]+|^[0-9]+\.?\s*/g, "")
+            .replace(/\.$/, "") // Remove trailing periods
+            .toLowerCase(); // Normalize to lowercase
+        });
     }
     
     // Log the parsed ingredients

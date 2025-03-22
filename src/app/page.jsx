@@ -548,185 +548,233 @@ function MainComponent() {
                 {/* Show custom suggestions if available, otherwise show stock recommendations */}
                 {customSuggestions.length > 0 ? (
                   <div className="mb-8">
-                    <h3 className="text-xl font-semibold mb-4">
+                    <h3 className="text-xl font-semibold mb-6 text-center bg-gradient-to-r from-pink-600 to-purple-600 py-2 rounded-lg">
                       AI Bartender Recommendations
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-8">
                       {customSuggestions.map((cocktail, index) => (
-                        <div key={cocktail.id || `custom-${index}`} className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg overflow-hidden border border-purple-500">
-                          <div className="p-5">
-                            <div className="flex items-center gap-2 mb-4">
-                              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                                <span className="text-lg">✨</span>
+                        <div key={cocktail.id || `custom-${index}`} className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-lg overflow-hidden border border-purple-500 backdrop-blur-sm">
+                          <div className="p-6">
+                            <div className="flex items-center gap-3 mb-5 border-b border-purple-500/50 pb-3">
+                              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                                <span className="text-xl">✨</span>
                               </div>
-                              <h4 className="text-lg font-bold">
+                              <h4 className="text-2xl font-bold text-white">
                                 {cocktail.name}
                               </h4>
                             </div>
                             
                             {/* Ingredients Section */}
-                            <div className="mb-4">
-                              <h5 className="font-semibold mb-2 text-purple-300">
-                                Ingredients:
+                            <div className="mb-6">
+                              <h5 className="font-semibold mb-3 text-purple-300 text-xl">
+                                Ingredients
                               </h5>
-                              <ul className="list-disc list-inside space-y-1">
-                                {Array.isArray(cocktail.ingredients) ? (
-                                  cocktail.ingredients.map((ingredient, idx) => {
-                                    // Handle different formats of ingredient data
-                                    let formattedIngredient = '';
-                                    
-                                    if (typeof ingredient === 'string') {
-                                      // If it's already a string, use it directly
-                                      // First clean up JSON formatting
-                                      formattedIngredient = ingredient
-                                        .replace(/\\n/g, '')
-                                        .replace(/\\r/g, '')
-                                        .replace(/\\t/g, ' ')
-                                        .replace(/\\'/g, "'")
-                                        .replace(/\\"/g, '"')
-                                        .replace(/"ingredients":/g, '')
-                                        .replace(/"whiskey":|"bitters":|"egg yolk":|"[a-z]+":/gi, '')
-                                        .replace(/\{|\}|\[|\]/g, '')
-                                        .replace(/,$/g, '')
-                                        .trim();
-                                        
-                                      // Then convert oz to ml
-                                      formattedIngredient = convertOzToMl(formattedIngredient);
-                                    } else if (typeof ingredient === 'object') {
-                                      // Handle objects with different property formats
-                                      if (ingredient.name) {
-                                        // Format: {name: "Vodka", amount: 2, unit: "oz"}
-                                        let amount = ingredient.amount || ingredient.measure || '';
-                                        let unit = ingredient.unit || '';
-                                        
-                                        // Convert oz to ml if needed
-                                        if (unit.toLowerCase() === 'oz' || unit.toLowerCase() === 'ounce' || unit.toLowerCase() === 'ounces') {
-                                          const ml = Math.round(parseFloat(amount) * 30);
-                                          amount = ml;
-                                          unit = 'ml';
+                              <div className="bg-black/30 rounded-lg p-4">
+                                <ul className="list-none space-y-3">
+                                  {Array.isArray(cocktail.ingredients) ? (
+                                    cocktail.ingredients.map((ingredient, idx) => {
+                                      // Handle different formats of ingredient data
+                                      let formattedIngredient = '';
+                                      
+                                      if (typeof ingredient === 'string') {
+                                        // If it's already a string, use it directly
+                                        // First clean up JSON formatting
+                                        formattedIngredient = ingredient
+                                          // Handle escaped characters
+                                          .replace(/\\n|\n/g, '')
+                                          .replace(/\\r|\r/g, '')
+                                          .replace(/\\t|\t/g, ' ')
+                                          .replace(/\\'/g, "'")
+                                          .replace(/\\"/g, '"')
+                                          // Remove JSON field names
+                                          .replace(/"ingredients":|ingredients:/gi, '')
+                                          .replace(/"[a-z]+":|[a-z]+:/gi, '')
+                                          // Remove JSON formatting
+                                          .replace(/\{|\}|\[|\]|"|'/g, '')
+                                          .replace(/,$/g, '')
+                                          .trim();
+                                          
+                                        // Then convert oz to ml
+                                        formattedIngredient = convertOzToMl(formattedIngredient);
+                                      } else if (typeof ingredient === 'object') {
+                                        // Handle objects with different property formats
+                                        if (ingredient.name) {
+                                          // Format: {name: "Vodka", amount: 2, unit: "oz"}
+                                          let amount = ingredient.amount || ingredient.measure || '';
+                                          let unit = ingredient.unit || '';
+                                          
+                                          // Convert oz to ml if needed
+                                          if (unit.toLowerCase() === 'oz' || unit.toLowerCase() === 'ounce' || unit.toLowerCase() === 'ounces') {
+                                            const ml = Math.round(parseFloat(amount) * 30);
+                                            amount = ml;
+                                            unit = 'ml';
+                                          }
+                                          
+                                          formattedIngredient = `${amount} ${unit} ${ingredient.name}`.trim().replace(/\s+/g, ' ');
+                                        } else if (ingredient.ingredient) {
+                                          // Format: {ingredient: "Vodka", quantity: "2 oz"}
+                                          let quantity = ingredient.quantity || ingredient.amount || '';
+                                          
+                                          // Convert oz to ml if present in quantity
+                                          if (typeof quantity === 'string' && quantity.toLowerCase().includes('oz')) {
+                                            quantity = convertOzToMl(quantity);
+                                          }
+                                          
+                                          formattedIngredient = `${quantity} ${ingredient.ingredient}`.trim();
+                                        } else {
+                                          // If it's an object but doesn't match known formats, stringify it
+                                          // But clean it up first by removing quotes and braces
+                                          formattedIngredient = JSON.stringify(ingredient)
+                                            .replace(/[{}"\']/g, '')
+                                            .replace(/,/g, ', ')
+                                            .replace(/:/g, ': ');
                                         }
-                                        
-                                        formattedIngredient = `${amount} ${unit} ${ingredient.name}`.trim().replace(/\s+/g, ' ');
-                                      } else if (ingredient.ingredient) {
-                                        // Format: {ingredient: "Vodka", quantity: "2 oz"}
-                                        let quantity = ingredient.quantity || ingredient.amount || '';
-                                        
-                                        // Convert oz to ml if present in quantity
-                                        if (typeof quantity === 'string' && quantity.toLowerCase().includes('oz')) {
-                                          quantity = convertOzToMl(quantity);
-                                        }
-                                        
-                                        formattedIngredient = `${quantity} ${ingredient.ingredient}`.trim();
                                       } else {
-                                        // If it's an object but doesn't match known formats, stringify it
-                                        // But clean it up first by removing quotes and braces
-                                        formattedIngredient = JSON.stringify(ingredient)
-                                          .replace(/[{}"']/g, '')
-                                          .replace(/,/g, ', ')
-                                          .replace(/:/g, ': ');
+                                        // Fallback for any other type
+                                        formattedIngredient = String(ingredient);
                                       }
-                                    } else {
-                                      // Fallback for any other type
-                                      formattedIngredient = String(ingredient);
-                                    }
-                                    
-                                    return (
-                                      <li key={idx} className="text-white">
-                                        {formattedIngredient}
-                                      </li>
-                                    );
-                                  })
-                                ) : (
-                                  <li className="text-white">Ingredients not specified</li>
-                                )}
-                              </ul>
+                                      
+                                      return (
+                                        <li key={idx} className="flex items-center gap-3 text-white border-b border-gray-700/30 pb-2">
+                                          <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0"></div>
+                                          <span className="text-lg">{formattedIngredient}</span>
+                                        </li>
+                                      );
+                                    })
+                                  ) : (
+                                    <li className="text-white">Ingredients not specified</li>
+                                  )}
+                                </ul>
+                              </div>
                             </div>
                             
                             {/* Instructions Section */}
-                            <div>
-                              <h5 className="font-semibold mb-2 text-purple-300">
-                                Instructions:
+                            <div className="mb-6">
+                              <h5 className="font-semibold mb-3 text-purple-300 text-xl">
+                                Instructions
                               </h5>
-                              <p className="text-white whitespace-pre-line">
-                                {typeof cocktail.instructions === 'string' 
-                                  ? cocktail.instructions
-                                      .replace(/\\n/g, '\n')
-                                      .replace(/\\r/g, '')
-                                      .replace(/\\t/g, ' ')
-                                      .replace(/\\'/g, "'")
-                                      .replace(/\\"/g, '"')
-                                      .replace(/Up"/g, '')
-                                      .replace(/Instructions:/gi, '')
-                                      .replace(/```/g, '')
-                                      .replace(/\{|\}/g, '')
-                                      .replace(/"instructions":/gi, '')
-                                      .replace(/,$/g, '')
-                                      .replace(/^\s*"/, '')
-                                      .replace(/"\s*$/, '')
-                                      .trim()
-                                  : 'Instructions not available'}
-                              </p>
+                              <div className="bg-black/30 rounded-lg p-4">
+                                <ol className="list-decimal list-inside space-y-3 text-white">
+                                  {(() => {
+                                    // Process instructions
+                                    let cleanInstructions = typeof cocktail.instructions === 'string' 
+                                      ? cocktail.instructions
+                                          // Handle escaped characters
+                                          .replace(/\\n|\n/g, ' ')
+                                          .replace(/\\r|\r/g, '')
+                                          .replace(/\\t|\t/g, ' ')
+                                          .replace(/\\'/g, "'")
+                                          .replace(/\\"/g, '"')
+                                          // Remove JSON field names and formatting
+                                          .replace(/"instructions":|instructions:|\[|\]|Up"/gi, '')
+                                          .replace(/\{|\}/g, '')
+                                          .replace(/^\s*"|"\s*$/g, '')
+                                          .replace(/,$/g, '')
+                                          .replace(/```/g, '')
+                                          // Remove redundant labels
+                                          .replace(/Instructions:|Method:|Preparation:|Steps:/gi, '')
+                                          // Clean up any remaining quotes
+                                          .replace(/"|'/g, '')
+                                          .trim()
+                                      : 'Instructions not available';
+                                    
+                                    // Try to split instructions into steps
+                                    let steps = [];
+                                    
+                                    // Check for numbered steps (1. 2. 3. etc)
+                                    if (cleanInstructions.match(/\d+\s*\.|Step\s*\d+/i)) {
+                                      steps = cleanInstructions.split(/(?=\d+\s*\.|Step\s*\d+)/i);
+                                    } 
+                                    // Check for sentences
+                                    else if (cleanInstructions.includes('.')) {
+                                      steps = cleanInstructions.split(/\.\s+/);
+                                      // Remove empty steps and add periods back
+                                      steps = steps.filter(step => step.trim()).map(step => step.trim() + '.');
+                                    }
+                                    // If no clear steps, use the whole thing
+                                    else {
+                                      steps = [cleanInstructions];
+                                    }
+                                    
+                                    return steps.map((step, idx) => {
+                                      // Clean up any step numbers that might be in the text
+                                      const cleanStep = step.replace(/^\d+\s*\.\s*|^Step\s*\d+:\s*/i, '').trim();
+                                      return cleanStep ? (
+                                        <li key={idx} className="text-lg pb-2">
+                                          {cleanStep}
+                                        </li>
+                                      ) : null;
+                                    });
+                                  })()} 
+                                </ol>
+                              </div>
                             </div>
                             
                             {/* YouTube Tutorial Videos Section */}
-                            {cocktail.youtubeVideos && Array.isArray(cocktail.youtubeVideos) && cocktail.youtubeVideos.length > 0 && (
-                              <div className="mt-4">
-                                <h5 className="font-semibold mb-2 text-purple-300">
-                                  Video Tutorials:
+                            {cocktail.youtubeVideos && Array.isArray(cocktail.youtubeVideos) && (
+                              <div className="mt-10 mb-8 border-t border-purple-500/30 pt-8">
+                                <h5 className="font-semibold mb-6 text-purple-300 text-2xl">
+                                  Video Tutorials
                                 </h5>
-                                <div className="space-y-3">
-                                  {cocktail.youtubeVideos.slice(0, 2).map((video, videoIndex) => {
-                                    // Skip invalid video IDs or objects
-                                    if (!video || typeof video !== 'object' || !video.id) {
-                                      return null;
-                                    }
-                                    
-                                    // Clean up video ID if it contains JSON artifacts
-                                    const videoId = typeof video.id === 'string' 
-                                      ? video.id
-                                          .replace(/\\\\n/g, '')
-                                          .replace(/\\\\r/g, '')
-                                          .replace(/\\\\t/g, '')
-                                          .replace(/\\\\'/g, '')
-                                          .replace(/\\\\"/g, '')
-                                          .replace(/"/g, '')
-                                          .replace(/,/g, '')
-                                          .replace(/}/g, '')
-                                          .replace(/{/g, '')
-                                          .trim()
-                                      : video.id;
+                                <div className="space-y-10">
+                                  {cocktail.youtubeVideos
+                                    .filter(video => {
+                                      // First, make sure we have a valid video object
+                                      if (!video || typeof video !== 'object') return false;
                                       
-                                    // Clean up video title
-                                    const videoTitle = video.title && typeof video.title === 'string'
-                                      ? video.title
-                                          .replace(/\\\\n/g, '')
-                                          .replace(/\\\\r/g, '')
-                                          .replace(/\\\\t/g, '')
-                                          .replace(/\\\\'/g, '')
-                                          .replace(/\\\\"/g, '')
-                                          .replace(/"/g, '')
+                                      // Then check if we have a valid ID (after cleaning)
+                                      const cleanId = typeof video.id === 'string' ?
+                                        video.id
+                                          .replace(/\\\\n|\\n|\\\\r|\\r|\\\\t|\\t/g, '')
+                                          .replace(/\\\\'/g, "'")
+                                          .replace(/\\\\"/g, '"')
+                                          .replace(/"id":|"title":|"youtubeVideos":|\[|\]|\{|\}|"|'/g, '')
                                           .replace(/,/g, '')
-                                          .replace(/}/g, '')
-                                          .replace(/{/g, '')
-                                          .trim()
-                                      : `${cocktail.name} Tutorial ${videoIndex + 1}`;
-                                    
-                                    return (
-                                      <div key={videoIndex} className="rounded-lg overflow-hidden">
-                                        <div className="relative pb-[56.25%] h-0 overflow-hidden bg-gray-800">
-                                          <iframe 
-                                            className="absolute top-0 left-0 w-full h-full" 
-                                            src={`https://www.youtube.com/embed/${videoId}`}
-                                            title={videoTitle}
-                                            frameBorder="0" 
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                            allowFullScreen
-                                          ></iframe>
+                                          .trim() : '';
+                                          
+                                      return cleanId && cleanId.length > 3;
+                                    })
+                                    .slice(0, 3)
+                                    .map((video, videoIndex) => {
+                                      // Extract and thoroughly clean the video ID
+                                      const rawId = typeof video.id === 'string' ? video.id : '';
+                                      const videoId = rawId
+                                        .replace(/\\\\n|\\n|\\\\r|\\r|\\\\t|\\t/g, '')
+                                        .replace(/\\\\'/g, "'")
+                                        .replace(/\\\\"/g, '"')
+                                        .replace(/"id":|"title":|"youtubeVideos":|\[|\]|\{|\}|"|'/g, '')
+                                        .replace(/,/g, '')
+                                        .trim();
+                                        
+                                      // Extract and thoroughly clean the video title
+                                      const rawTitle = typeof video.title === 'string' ? video.title : '';
+                                      const videoTitle = rawTitle
+                                        ? rawTitle
+                                            .replace(/\\\\n|\\n|\\\\r|\\r|\\\\t|\\t/g, '')
+                                            .replace(/\\\\'/g, "'")
+                                            .replace(/\\\\"/g, '"')
+                                            .replace(/"id":|"title":|"youtubeVideos":|\[|\]|\{|\}|"|'/g, '')
+                                            .replace(/,/g, '')
+                                            .trim()
+                                        : `${cocktail.name} Tutorial ${videoIndex + 1}`;
+                                      
+                                      return videoId ? (
+                                        <div key={videoIndex} className="mb-8">
+                                          <h6 className="text-xl font-medium text-purple-200 mb-3">{videoTitle}</h6>
+                                          <div className="relative pb-[56.25%] h-0 overflow-hidden">
+                                            <iframe 
+                                              className="absolute top-0 left-0 w-full h-full" 
+                                              src={`https://www.youtube.com/embed/${videoId}`}
+                                              title={videoTitle}
+                                              frameBorder="0" 
+                                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                              allowFullScreen
+                                            ></iframe>
+                                          </div>
                                         </div>
-                                        <p className="text-sm text-gray-300 mt-1 px-1">{videoTitle}</p>
-                                      </div>
-                                    );
-                                  })}
+                                      ) : null;
+                                    })
+                                  }
                                 </div>
                               </div>
                             )}
@@ -737,29 +785,27 @@ function MainComponent() {
                   </div>
                 ) : (recommendations.length > 0 && (
                   <div className="mb-8">
-                    <h3 className="text-xl font-semibold mb-4">
+                    <h3 className="text-xl font-semibold mb-6 text-center bg-gradient-to-r from-green-600 to-blue-600 py-2 rounded-lg">
                       Recommended Cocktails
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-8">
                       {recommendations.map((cocktail) => (
                         <div
                           key={cocktail.id}
-                          className={`rounded-lg overflow-hidden border ${
-                            cocktail.canMake
-                              ? "border-green-500"
-                              : "border-yellow-500"
-                          }`}
+                          className={`mb-12 pb-8 ${cocktail.canMake ? "border-b-2 border-green-500" : "border-b-2 border-yellow-500"}`}
                         >
                           {cocktail.image_url && (
-                            <div className="h-48 overflow-hidden relative">
-                              <img
-                                src={cocktail.image_url}
-                                alt={`${cocktail.name} cocktail`}
-                                className="w-full h-full object-cover"
-                              />
+                            <div className="mb-8 relative">
+                              <div className="aspect-video w-full overflow-hidden relative rounded-lg">
+                                <img
+                                  src={cocktail.image_url}
+                                  alt={`${cocktail.name} cocktail`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
                               <button
                                 onClick={() => toggleFavorite(cocktail.id)}
-                                className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-2"
+                                className="absolute top-4 right-4 bg-black/70 hover:bg-black/90 rounded-full p-2 transition-colors"
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -782,13 +828,13 @@ function MainComponent() {
                               </button>
                             </div>
                           )}
-                          <div className="p-4 bg-black bg-opacity-50">
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="text-lg font-bold">
+                          <div>
+                            <div className="flex justify-between items-start mb-6 pb-4">
+                              <h4 className="text-2xl font-bold">
                                 {cocktail.name}
                               </h4>
                               <div
-                                className={`px-2 py-1 rounded text-sm ${
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
                                   cocktail.canMake
                                     ? "bg-green-600"
                                     : "bg-yellow-600"
@@ -824,11 +870,11 @@ function MainComponent() {
                               </div>
                             )}
 
-                            <div className="mb-3">
-                              <h5 className="font-semibold mb-1">
-                                Ingredients:
+                            <div className="mb-5">
+                              <h5 className="font-semibold mb-3 text-green-300 text-lg">
+                                Ingredients
                               </h5>
-                              <ul className="list-disc list-inside">
+                              <ul className="list-disc list-inside space-y-2 pl-2">
                                 {cocktail.ingredients.map((item, idx) => (
                                   <li
                                     key={idx}
@@ -852,48 +898,25 @@ function MainComponent() {
                             </div>
 
                             {!cocktail.canMake && (
-                              <div className="mb-3">
-                                <h5 className="font-semibold mb-1">Missing:</h5>
-                                <ul className="list-disc list-inside text-red-400">
+                              <div className="mb-5">
+                                <h5 className="font-semibold mb-3 text-red-300 text-lg">Missing Ingredients</h5>
+                                <ul className="list-disc list-inside space-y-2 pl-2 text-red-400">
                                   {cocktail.missingIngredients.map(
                                     (item, idx) => (
-                                      <li key={idx}>{item}</li>
+                                      <li key={idx} className="text-base">{item}</li>
                                     )
                                   )}
                                 </ul>
                               </div>
                             )}
 
-                            <div className="mb-3">
-                              <h5 className="font-semibold mb-1">
-                                Instructions:
+                            <div className="mb-5">
+                              <h5 className="font-semibold mb-3 text-blue-300 text-lg">
+                                Instructions
                               </h5>
-                              <p className="text-gray-300">
+                              <p className="text-gray-300 leading-relaxed pl-2">
                                 {cocktail.instructions}
                               </p>
-                            </div>
-
-                            <div className="mt-4 pt-3 border-t border-gray-700">
-                              <h5 className="font-semibold mb-1">
-                                Rate this cocktail:
-                              </h5>
-                              <div className="flex items-center gap-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <button
-                                    key={star}
-                                    onClick={() =>
-                                      rateCocktail(cocktail.id, star)
-                                    }
-                                    className={`text-2xl ${
-                                      (cocktail.userRating || 0) >= star
-                                        ? "text-yellow-400"
-                                        : "text-gray-500"
-                                    }`}
-                                  >
-                                    ★
-                                  </button>
-                                ))}
-                              </div>
                             </div>
                           </div>
                         </div>

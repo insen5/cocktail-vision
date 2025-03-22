@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cocktail Vision UI Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a1a2e;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .cocktail-card {
+            background: linear-gradient(to right, #1e3a8a, #5b21b6);
+            border: 1px solid #a855f7;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">Cocktail Vision UI Preview</h1>
+        
+        <div class="bg-black bg-opacity-30 rounded-xl p-6 backdrop-blur-sm">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold">Your Cocktail Options</h2>
+                <button class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
+                    Back to Ingredients
+                </button>
+            </div>
+            
+            <div>
+                <!-- Custom Suggestions Section -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold mb-4">
+                        AI Bartender Recommendations
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Cocktail Card 1 -->
+                        <div class="cocktail-card">
+                            <div class="p-5">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span class="text-lg">✨</span>
+                                    </div>
+                                    <h4 class="text-lg font-bold">
+                                        Gin Basil Smash
+                                    </h4>
+                                </div>
+                                
+                                <!-- Ingredients Section -->
+                                <div class="mb-4">
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Ingredients:
+                                    </h5>
+                                    <ul class="list-disc list-inside">
+                                        <li class="text-white">2 oz Gin</li>
+                                        <li class="text-white">1 oz Fresh lemon juice</li>
+                                        <li class="text-white">3/4 oz Simple syrup</li>
+                                        <li class="text-white">8-10 Fresh basil leaves</li>
+                                    </ul>
+                                </div>
+                                
+                                <!-- Instructions Section -->
+                                <div>
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Instructions:
+                                    </h5>
+                                    <p class="text-white whitespace-pre-line">
+                                        Muddle basil leaves with simple syrup in a shaker. Add gin, lemon juice, and ice. Shake vigorously and double strain into a rocks glass filled with ice. Garnish with a basil leaf.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cocktail Card 2 -->
+                        <div class="cocktail-card">
+                            <div class="p-5">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span class="text-lg">✨</span>
+                                    </div>
+                                    <h4 class="text-lg font-bold">
+                                        Spicy Margarita
+                                    </h4>
+                                </div>
+                                
+                                <!-- Ingredients Section -->
+                                <div class="mb-4">
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Ingredients:
+                                    </h5>
+                                    <ul class="list-disc list-inside">
+                                        <li class="text-white">2 oz Tequila</li>
+                                        <li class="text-white">1 oz Lime juice</li>
+                                        <li class="text-white">0.5 oz Agave syrup</li>
+                                        <li class="text-white">2 Jalapeño slices</li>
+                                    </ul>
+                                </div>
+                                
+                                <!-- Instructions Section -->
+                                <div>
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Instructions:
+                                    </h5>
+                                    <p class="text-white whitespace-pre-line">
+                                        Muddle jalapeño slices with agave syrup in a shaker. Add tequila, lime juice, and ice. Shake well and strain into a salt-rimmed glass filled with ice. Garnish with a lime wheel and jalapeño slice.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cocktail Card 3 -->
+                        <div class="cocktail-card">
+                            <div class="p-5">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span class="text-lg">✨</span>
+                                    </div>
+                                    <h4 class="text-lg font-bold">
+                                        Whiskey Sour
+                                    </h4>
+                                </div>
+                                
+                                <!-- Ingredients Section -->
+                                <div class="mb-4">
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Ingredients:
+                                    </h5>
+                                    <ul class="list-disc list-inside">
+                                        <li class="text-white">2 oz Bourbon whiskey</li>
+                                        <li class="text-white">3/4 oz Fresh lemon juice</li>
+                                        <li class="text-white">1/2 oz Simple syrup</li>
+                                        <li class="text-white">1 Egg white (optional)</li>
+                                        <li class="text-white">Angostura bitters</li>
+                                    </ul>
+                                </div>
+                                
+                                <!-- Instructions Section -->
+                                <div>
+                                    <h5 class="font-semibold mb-2 text-purple-300">
+                                        Instructions:
+                                    </h5>
+                                    <p class="text-white whitespace-pre-line">
+                                        Add all ingredients to a shaker without ice and dry shake vigorously (if using egg white). Add ice and shake again until well-chilled. Strain into a rocks glass over fresh ice. Garnish with a dash of Angostura bitters and a lemon twist.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-8">
+                    <button class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
+                        Start Over
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
