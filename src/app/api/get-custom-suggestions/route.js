@@ -195,6 +195,10 @@ function parseAIResponse(content) {
   // Initialize cocktails array
   let cocktails = [];
   
+  // Clean the content string to help with JSON parsing
+  // Remove markdown code blocks if present
+  content = content.replace(/```json\s+|```\s*$/g, '');
+  
   // Method 1: Try to parse as JSON directly
   try {
     console.log("Attempting direct JSON parsing");
@@ -204,14 +208,61 @@ function parseAIResponse(content) {
     // If we got an array directly
     if (Array.isArray(parsedData)) {
       console.log("Parsed data is an array with", parsedData.length, "items");
-      cocktails = parsedData.map((cocktail, index) => ({
-        id: `custom-${index + 1}`,
-        name: cocktail.name || "Unknown Cocktail",
-        ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
-        instructions: cocktail.instructions || "",
-        youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
-        custom: true
-      }));
+      cocktails = parsedData.map((cocktail, index) => {
+        // Clean and sanitize each field
+        const sanitizedName = typeof cocktail.name === 'string' ? 
+          cocktail.name.replace(/["{}\[\]]/g, '').trim() : "Unknown Cocktail";
+          
+        // Handle ingredients array
+        let sanitizedIngredients = [];
+        if (Array.isArray(cocktail.ingredients)) {
+          sanitizedIngredients = cocktail.ingredients.map(ingredient => {
+            if (typeof ingredient === 'string') {
+              return ingredient.replace(/["{}\[\]]/g, '').trim();
+            } else if (typeof ingredient === 'object' && ingredient !== null) {
+              // Handle object format
+              const name = ingredient.name || '';
+              const amount = ingredient.amount || ingredient.quantity || '';
+              const unit = ingredient.unit || '';
+              return `${amount} ${unit} ${name}`.trim().replace(/\s+/g, ' ');
+            }
+            return String(ingredient);
+          });
+        } else if (typeof cocktail.ingredients === 'string') {
+          sanitizedIngredients = [cocktail.ingredients.replace(/["{}\[\]]/g, '').trim()];
+        }
+        
+        // Clean instructions
+        const sanitizedInstructions = typeof cocktail.instructions === 'string' ?
+          cocktail.instructions
+            .replace(/["{}\[\]]/g, '')
+            .replace(/"instructions":/gi, '')
+            .replace(/\\n/g, '\n')
+            .trim() : "";
+            
+        // Handle YouTube videos
+        let sanitizedVideos = [];
+        if (Array.isArray(cocktail.youtubeVideos)) {
+          sanitizedVideos = cocktail.youtubeVideos
+            .filter(video => video && typeof video === 'object')
+            .slice(0, 2)
+            .map(video => ({
+              id: typeof video.id === 'string' ? 
+                video.id.replace(/["{}\[\],]/g, '').trim() : "",
+              title: typeof video.title === 'string' ? 
+                video.title.replace(/["{}\[\],]/g, '').trim() : ""
+            }));
+        }
+        
+        return {
+          id: `custom-${index + 1}`,
+          name: sanitizedName,
+          ingredients: sanitizedIngredients,
+          instructions: sanitizedInstructions,
+          youtubeVideos: sanitizedVideos,
+          custom: true
+        };
+      });
       console.log("Successfully mapped array data to cocktails");
       return cocktails;
     }
@@ -220,14 +271,61 @@ function parseAIResponse(content) {
     if (parsedData && typeof parsedData === 'object') {
       if (parsedData.cocktails && Array.isArray(parsedData.cocktails)) {
         console.log("Found cocktails array in JSON object with", parsedData.cocktails.length, "items");
-        cocktails = parsedData.cocktails.map((cocktail, index) => ({
-          id: `custom-${index + 1}`,
-          name: cocktail.name || "Unknown Cocktail",
-          ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
-          instructions: cocktail.instructions || "",
-          youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
-          custom: true
-        }));
+        cocktails = parsedData.cocktails.map((cocktail, index) => {
+          // Clean and sanitize each field
+          const sanitizedName = typeof cocktail.name === 'string' ? 
+            cocktail.name.replace(/["{}\[\]]/g, '').trim() : "Unknown Cocktail";
+            
+          // Handle ingredients array
+          let sanitizedIngredients = [];
+          if (Array.isArray(cocktail.ingredients)) {
+            sanitizedIngredients = cocktail.ingredients.map(ingredient => {
+              if (typeof ingredient === 'string') {
+                return ingredient.replace(/["{}\[\]]/g, '').trim();
+              } else if (typeof ingredient === 'object' && ingredient !== null) {
+                // Handle object format
+                const name = ingredient.name || '';
+                const amount = ingredient.amount || ingredient.quantity || '';
+                const unit = ingredient.unit || '';
+                return `${amount} ${unit} ${name}`.trim().replace(/\s+/g, ' ');
+              }
+              return String(ingredient);
+            });
+          } else if (typeof cocktail.ingredients === 'string') {
+            sanitizedIngredients = [cocktail.ingredients.replace(/["{}\[\]]/g, '').trim()];
+          }
+          
+          // Clean instructions
+          const sanitizedInstructions = typeof cocktail.instructions === 'string' ?
+            cocktail.instructions
+              .replace(/["{}\[\]]/g, '')
+              .replace(/"instructions":/gi, '')
+              .replace(/\\n/g, '\n')
+              .trim() : "";
+              
+          // Handle YouTube videos
+          let sanitizedVideos = [];
+          if (Array.isArray(cocktail.youtubeVideos)) {
+            sanitizedVideos = cocktail.youtubeVideos
+              .filter(video => video && typeof video === 'object')
+              .slice(0, 2)
+              .map(video => ({
+                id: typeof video.id === 'string' ? 
+                  video.id.replace(/["{}\[\],]/g, '').trim() : "",
+                title: typeof video.title === 'string' ? 
+                  video.title.replace(/["{}\[\],]/g, '').trim() : ""
+              }));
+          }
+          
+          return {
+            id: `custom-${index + 1}`,
+            name: sanitizedName,
+            ingredients: sanitizedIngredients,
+            instructions: sanitizedInstructions,
+            youtubeVideos: sanitizedVideos,
+            custom: true
+          };
+        });
         console.log("Successfully mapped nested cocktails array");
         return cocktails;
       }
@@ -235,12 +333,58 @@ function parseAIResponse(content) {
       // If we have a single cocktail object
       if (parsedData.name && (parsedData.ingredients || parsedData.instructions)) {
         console.log("Found single cocktail object in JSON");
+        
+        // Clean and sanitize each field
+        const sanitizedName = typeof parsedData.name === 'string' ? 
+          parsedData.name.replace(/["{}\[\]]/g, '').trim() : "Unknown Cocktail";
+          
+        // Handle ingredients array
+        let sanitizedIngredients = [];
+        if (Array.isArray(parsedData.ingredients)) {
+          sanitizedIngredients = parsedData.ingredients.map(ingredient => {
+            if (typeof ingredient === 'string') {
+              return ingredient.replace(/["{}\[\]]/g, '').trim();
+            } else if (typeof ingredient === 'object' && ingredient !== null) {
+              // Handle object format
+              const name = ingredient.name || '';
+              const amount = ingredient.amount || ingredient.quantity || '';
+              const unit = ingredient.unit || '';
+              return `${amount} ${unit} ${name}`.trim().replace(/\s+/g, ' ');
+            }
+            return String(ingredient);
+          });
+        } else if (typeof parsedData.ingredients === 'string') {
+          sanitizedIngredients = [parsedData.ingredients.replace(/["{}\[\]]/g, '').trim()];
+        }
+        
+        // Clean instructions
+        const sanitizedInstructions = typeof parsedData.instructions === 'string' ?
+          parsedData.instructions
+            .replace(/["{}\[\]]/g, '')
+            .replace(/"instructions":/gi, '')
+            .replace(/\\n/g, '\n')
+            .trim() : "";
+            
+        // Handle YouTube videos
+        let sanitizedVideos = [];
+        if (Array.isArray(parsedData.youtubeVideos)) {
+          sanitizedVideos = parsedData.youtubeVideos
+            .filter(video => video && typeof video === 'object')
+            .slice(0, 2)
+            .map(video => ({
+              id: typeof video.id === 'string' ? 
+                video.id.replace(/["{}\[\],]/g, '').trim() : "",
+              title: typeof video.title === 'string' ? 
+                video.title.replace(/["{}\[\],]/g, '').trim() : ""
+            }));
+        }
+        
         cocktails = [{
           id: "custom-1",
-          name: parsedData.name,
-          ingredients: Array.isArray(parsedData.ingredients) ? parsedData.ingredients : [parsedData.ingredients],
-          instructions: parsedData.instructions || "",
-          youtubeVideos: Array.isArray(parsedData.youtubeVideos) ? parsedData.youtubeVideos.slice(0, 2) : [],
+          name: sanitizedName,
+          ingredients: sanitizedIngredients,
+          instructions: sanitizedInstructions,
+          youtubeVideos: sanitizedVideos,
           custom: true
         }];
         console.log("Successfully created cocktail from single object");
@@ -264,14 +408,61 @@ function parseAIResponse(content) {
       try {
         const extractedJson = JSON.parse(match[0]);
         console.log("Successfully parsed extracted JSON with", extractedJson.length, "items");
-        cocktails = extractedJson.map((cocktail, index) => ({
-          id: `custom-${index + 1}`,
-          name: cocktail.name || "Unknown Cocktail",
-          ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
-          instructions: cocktail.instructions || "",
-          youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
-          custom: true
-        }));
+        cocktails = extractedJson.map((cocktail, index) => {
+          // Clean and sanitize each field
+          const sanitizedName = typeof cocktail.name === 'string' ? 
+            cocktail.name.replace(/["{}\[\]]/g, '').trim() : "Unknown Cocktail";
+            
+          // Handle ingredients array
+          let sanitizedIngredients = [];
+          if (Array.isArray(cocktail.ingredients)) {
+            sanitizedIngredients = cocktail.ingredients.map(ingredient => {
+              if (typeof ingredient === 'string') {
+                return ingredient.replace(/["{}\[\]]/g, '').trim();
+              } else if (typeof ingredient === 'object' && ingredient !== null) {
+                // Handle object format
+                const name = ingredient.name || '';
+                const amount = ingredient.amount || ingredient.quantity || '';
+                const unit = ingredient.unit || '';
+                return `${amount} ${unit} ${name}`.trim().replace(/\s+/g, ' ');
+              }
+              return String(ingredient);
+            });
+          } else if (typeof cocktail.ingredients === 'string') {
+            sanitizedIngredients = [cocktail.ingredients.replace(/["{}\[\]]/g, '').trim()];
+          }
+          
+          // Clean instructions
+          const sanitizedInstructions = typeof cocktail.instructions === 'string' ?
+            cocktail.instructions
+              .replace(/["{}\[\]]/g, '')
+              .replace(/"instructions":/gi, '')
+              .replace(/\\n/g, '\n')
+              .trim() : "";
+              
+          // Handle YouTube videos
+          let sanitizedVideos = [];
+          if (Array.isArray(cocktail.youtubeVideos)) {
+            sanitizedVideos = cocktail.youtubeVideos
+              .filter(video => video && typeof video === 'object')
+              .slice(0, 2)
+              .map(video => ({
+                id: typeof video.id === 'string' ? 
+                  video.id.replace(/["{}\[\],]/g, '').trim() : "",
+                title: typeof video.title === 'string' ? 
+                  video.title.replace(/["{}\[\],]/g, '').trim() : ""
+              }));
+          }
+          
+          return {
+            id: `custom-${index + 1}`,
+            name: sanitizedName,
+            ingredients: sanitizedIngredients,
+            instructions: sanitizedInstructions,
+            youtubeVideos: sanitizedVideos,
+            custom: true
+          };
+        });
         console.log("Successfully mapped regex-extracted JSON");
         return cocktails;
       } catch (e) {
