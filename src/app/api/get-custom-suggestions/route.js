@@ -89,13 +89,14 @@ async function getGroqSuggestions(ingredients) {
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "llama3-8b-8192", // Using Llama 3 8B model which has a generous free tier
+      model: "llama3-70b-8192", // Using Llama 3 70B model for better results with YouTube videos
       messages: [
         {
           role: "system",
           content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
           Your task is to suggest creative cocktail recipes based on the ingredients provided.
-          IMPORTANT: Always use metric measurements in milliliters (ml) instead of fluid ounces (oz). For example, use '60 ml' instead of '2 oz'.`
+          IMPORTANT: Always use metric measurements in milliliters (ml) instead of fluid ounces (oz). For example, use '60 ml' instead of '2 oz'.
+          CRITICAL: You must find and provide REAL YouTube video IDs for cocktail tutorials. Do not make up fictional IDs.`
         },
         {
           role: "user",
@@ -106,11 +107,22 @@ async function getGroqSuggestions(ingredients) {
           
           Format your response as a JSON array with objects containing 'name', 'ingredients', 'instructions', and 'youtubeVideos' fields. The 'youtubeVideos' field should be an array containing exactly 2 objects, each with 'id' and 'title' properties.
           
-          For the YouTube video IDs, provide ONLY the ID portion (not the full URL) of actual, real YouTube videos for cocktail tutorials that are likely to exist. For example, if the full URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID. The title should be a brief description of the video.`
+          CRITICAL INSTRUCTIONS FOR YOUTUBE VIDEOS:
+          1. You MUST search for and provide REAL YouTube video IDs of actual cocktail tutorials that exist on YouTube
+          2. Extract ONLY the ID portion from the URL (e.g., if the URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID)
+          3. Include the actual title of the video as it appears on YouTube
+          4. DO NOT make up fictional IDs - if you're not certain of a real ID, provide the name of the cocktail and suggest searching for it
+          5. Popular cocktail channels include: 'Tipsy Bartender', 'How to Drink', 'Cocktail Chemistry', 'Steve the Bartender', and 'Educated Barfly'
+          
+          Example of a good youtubeVideos array:
+          "youtubeVideos": [
+            {"id": "LL8Qs5dlJDI", "title": "How to Make a Mojito - Cocktail Chemistry"}, 
+            {"id": "pQi5jRvBjFY", "title": "The BEST Mojito Recipe (3 Ways)"}
+          ]`
         }
       ],
-      temperature: 0.7,
-      max_tokens: 800
+      temperature: 0.5,
+      max_tokens: 1200
     })
   });
 
@@ -148,8 +160,8 @@ async function getClaudeSuggestions(ingredients) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-3-haiku-20240307", // Using the smallest/cheapest model
-      max_tokens: 800,
+      model: "claude-3-opus-20240229", // Using the most capable model for better YouTube video search
+      max_tokens: 1200,
       messages: [
         {
           role: "user",
@@ -165,7 +177,18 @@ async function getClaudeSuggestions(ingredients) {
           
           Format your response as a JSON array with objects containing 'name', 'ingredients', 'instructions', and 'youtubeVideos' fields. The 'youtubeVideos' field should be an array containing exactly 2 objects, each with 'id' and 'title' properties.
           
-          For the YouTube video IDs, provide ONLY the ID portion (not the full URL) of actual, real YouTube videos for cocktail tutorials that are likely to exist. For example, if the full URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID. The title should be a brief description of the video.`
+          CRITICAL INSTRUCTIONS FOR YOUTUBE VIDEOS:
+          1. You MUST search for and provide REAL YouTube video IDs of actual cocktail tutorials that exist on YouTube
+          2. Extract ONLY the ID portion from the URL (e.g., if the URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID)
+          3. Include the actual title of the video as it appears on YouTube
+          4. DO NOT make up fictional IDs - if you're not certain of a real ID, provide the name of the cocktail and suggest searching for it
+          5. Popular cocktail channels include: 'Tipsy Bartender', 'How to Drink', 'Cocktail Chemistry', 'Steve the Bartender', and 'Educated Barfly'
+          
+          Example of a good youtubeVideos array:
+          "youtubeVideos": [
+            {"id": "LL8Qs5dlJDI", "title": "How to Make a Mojito - Cocktail Chemistry"}, 
+            {"id": "pQi5jRvBjFY", "title": "The BEST Mojito Recipe (3 Ways)"}
+          ]`
         }
       ]
     })

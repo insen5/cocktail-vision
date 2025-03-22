@@ -69,6 +69,7 @@ jobs:
           # These secrets need to be added to the GitHub repository
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          NEXT_PUBLIC_VERCEL_ENV: production
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
