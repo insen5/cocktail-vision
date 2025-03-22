@@ -141,77 +141,45 @@ function MainComponent() {
 
         try {
           // Use OpenAI Vision API directly from the client side
-          const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+          // API keys are now handled securely on the server side
           
-          if (!apiKey) {
-            console.error("OpenAI API key not found");
-            throw new Error("OpenAI API key not found");
-          }
-          
-          console.log("Calling OpenAI Vision API to analyze image...");
+          console.log("Calling server-side API to analyze image...");
           console.log(`Image size: ~${Math.round(base64String.length / 1024)}KB`);
           
-          const requestBody = {
-            model: "gpt-4-vision-preview",
-            messages: [
-              {
-                role: "system",
-                content: "You are a helpful assistant that identifies cocktail ingredients from images. List only the ingredients you can see, separated by commas. Be concise."
-              },
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: "What cocktail ingredients can you identify in this image?" },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: `data:image/jpeg;base64,${base64String}`
-                    }
-                  }
-                ]
-              }
-            ],
-            max_tokens: 300
-          };
-          
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          // Call our secure server-side API endpoint for image analysis
+          const response = await fetch("/api/analyze-image", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`
+              "Content-Type": "application/json"
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+              imageBase64: base64String
+            })
           });
           
-          console.log("Vision API response status:", response.status);
+          console.log("Image analysis API response status:", response.status);
         
           if (!response.ok) {
             const errorText = await response.text();
-            console.error("Vision API error response:", errorText);
-            console.error("Vision API error status:", response.status);
-            console.error("Vision API error statusText:", response.statusText);
+            console.error("Image analysis API error response:", errorText);
+            console.error("Image analysis API error status:", response.status);
             
             try {
               const errorData = JSON.parse(errorText);
-              console.error("Vision API parsed error:", JSON.stringify(errorData));
-              throw new Error(`OpenAI Vision API error: ${errorData.error?.message || response.statusText}`);
+              console.error("Image analysis API parsed error:", JSON.stringify(errorData));
+              throw new Error(`Image analysis error: ${errorData.error || response.statusText}`);
             } catch (e) {
-              console.error("Error parsing Vision API error response:", e);
-              throw new Error(`OpenAI Vision API error: ${response.status} ${response.statusText}`);
+              console.error("Error parsing image analysis API error response:", e);
+              throw new Error(`Image analysis error: ${response.status} ${response.statusText}`);
             }
           }
         
           const data = await response.json();
-          console.log("Vision API full response:", JSON.stringify(data));
+          console.log("Image analysis API full response:", JSON.stringify(data));
           
-          const ingredientsText = data.choices[0]?.message?.content || "";
-          console.log("Vision API ingredients text:", ingredientsText);
-        
-          // Parse ingredients from the response
-          const detectedIngredients = ingredientsText
-            .split(",")
-            .map(item => item.trim())
-            .filter(item => item.length > 0);
+          // The server response should already have parsed ingredients
+          const detectedIngredients = data.ingredients || [];
+          console.log("Detected ingredients:", detectedIngredients);
           
           console.log("Detected ingredients:", detectedIngredients);
           
