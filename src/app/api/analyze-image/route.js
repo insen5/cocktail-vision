@@ -80,11 +80,11 @@ async function analyzeWithGroq(imageBase64) {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that identifies cocktail ingredients from images. List only the ingredients you can see, separated by commas."
+          content: "You are a precise visual identification assistant that identifies cocktail ingredients from images. Your task is to identify ONLY items that are clearly and unequivocally visible in the image. Include brand names when visible (e.g., 'Absolut Vodka' rather than just 'vodka'). If the image shows a bar shelf, identify specific brands and beverages. If it shows a kitchen or fridge, identify food items like lime, salt, Coca-Cola, ginger ale, etc. NEVER invent or guess ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas."
         },
         {
           role: "user",
-          content: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify all visible ingredients (fruits, liquors, mixers, garnishes, etc.) that could be used in cocktail making. List ONLY the names of the ingredients you can see, separated by commas. Be specific but concise (e.g., 'lime' not 'green citrus fruit'). If you see bottles, try to identify what type of alcohol or mixer they contain.`
+          content: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify ONLY the ingredients that are clearly visible in the image. Be extremely precise and include brand names when visible (e.g., 'Bombay Sapphire Gin' not just 'gin'). If you see a bar shelf, identify specific brands and beverages. If you see a kitchen or fridge, identify specific food items like 'Fresh lime', 'Morton Salt', 'Coca-Cola', etc. DO NOT guess or invent ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas. If you're uncertain about an item, do not include it.`
         }
       ],
       max_tokens: 300
@@ -122,7 +122,7 @@ async function analyzeWithClaude(imageBase64) {
           content: [
             {
               type: "text",
-              text: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify all visible ingredients (fruits, liquors, mixers, garnishes, etc.) that could be used in cocktail making. List ONLY the names of the ingredients you can see, separated by commas. Be specific but concise (e.g., 'lime' not 'green citrus fruit'). If you see bottles, try to identify what type of alcohol or mixer they contain.`
+              text: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify ONLY the ingredients that are clearly visible in the image. Be extremely precise and include brand names when visible (e.g., 'Bombay Sapphire Gin' not just 'gin'). If you see a bar shelf, identify specific brands and beverages. If you see a kitchen or fridge, identify specific food items like 'Fresh lime', 'Morton Salt', 'Coca-Cola', etc. DO NOT guess or invent ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas. If you're uncertain about an item, do not include it.`
             }
           ]
         }
