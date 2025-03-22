@@ -4,7 +4,7 @@ name: Deploy Next.js site to Pages
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["clean-branch", "main"]
+    branches: ["main-clean"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -67,8 +67,8 @@ jobs:
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
         env:
           # These secrets need to be added to the GitHub repository
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || '' }}
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY || '' }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
