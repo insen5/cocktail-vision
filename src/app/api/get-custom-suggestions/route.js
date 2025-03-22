@@ -181,107 +181,218 @@ async function getClaudeSuggestions(ingredients) {
  * @returns {Array} - Structured cocktail data
  */
 function parseAIResponse(content) {
+  console.log("Starting to parse AI response:", content.substring(0, 100) + "...");
+  
+  // Initialize cocktails array
+  let cocktails = [];
+  
+  // Method 1: Try to parse as JSON directly
   try {
-    // Try to parse as JSON directly
+    console.log("Attempting direct JSON parsing");
     const parsedData = JSON.parse(content);
+    console.log("JSON parsed successfully, checking structure");
+    
+    // If we got an array directly
     if (Array.isArray(parsedData)) {
-      return parsedData.map((cocktail, index) => ({
+      console.log("Parsed data is an array with", parsedData.length, "items");
+      cocktails = parsedData.map((cocktail, index) => ({
         id: `custom-${index + 1}`,
         name: cocktail.name || "Unknown Cocktail",
-        ingredients: cocktail.ingredients || [],
+        ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
         instructions: cocktail.instructions || "",
         custom: true
       }));
+      console.log("Successfully mapped array data to cocktails");
+      return cocktails;
     }
     
-    // If we got a JSON object but not an array
-    if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+    // If we got a JSON object with a cocktails array
+    if (parsedData && typeof parsedData === 'object') {
       if (parsedData.cocktails && Array.isArray(parsedData.cocktails)) {
-        return parsedData.cocktails.map((cocktail, index) => ({
+        console.log("Found cocktails array in JSON object with", parsedData.cocktails.length, "items");
+        cocktails = parsedData.cocktails.map((cocktail, index) => ({
           id: `custom-${index + 1}`,
           name: cocktail.name || "Unknown Cocktail",
-          ingredients: cocktail.ingredients || [],
+          ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
           instructions: cocktail.instructions || "",
           custom: true
         }));
+        console.log("Successfully mapped nested cocktails array");
+        return cocktails;
+      }
+      
+      // If we have a single cocktail object
+      if (parsedData.name && (parsedData.ingredients || parsedData.instructions)) {
+        console.log("Found single cocktail object in JSON");
+        cocktails = [{
+          id: "custom-1",
+          name: parsedData.name,
+          ingredients: Array.isArray(parsedData.ingredients) ? parsedData.ingredients : [parsedData.ingredients],
+          instructions: parsedData.instructions || "",
+          custom: true
+        }];
+        console.log("Successfully created cocktail from single object");
+        return cocktails;
       }
     }
     
-    // If JSON parsing failed or structure is unexpected, try to extract using regex
-    console.warn("Direct JSON parsing failed, falling back to regex extraction");
-    throw new Error("Invalid JSON format");
+    console.warn("JSON structure doesn't match expected format", JSON.stringify(parsedData).substring(0, 100) + "...");
   } catch (error) {
     console.warn("JSON parsing error:", error.message);
-    
-    // Fallback: Try to extract JSON array using regex
-    const jsonArrayRegex = /\[\s*\{[\s\S]*\}\s*\]/g;
+  }
+  
+  // Method 2: Try to extract JSON array using regex
+  try {
+    console.log("Attempting JSON extraction via regex");
+    const jsonArrayRegex = /\[\s*\{[\s\S]*?\}\s*\]/g;
     const match = content.match(jsonArrayRegex);
     
     if (match && match[0]) {
+      console.log("Found potential JSON array via regex");
       try {
         const extractedJson = JSON.parse(match[0]);
-        return extractedJson.map((cocktail, index) => ({
+        console.log("Successfully parsed extracted JSON with", extractedJson.length, "items");
+        cocktails = extractedJson.map((cocktail, index) => ({
           id: `custom-${index + 1}`,
           name: cocktail.name || "Unknown Cocktail",
-          ingredients: cocktail.ingredients || [],
+          ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
           instructions: cocktail.instructions || "",
           custom: true
         }));
+        console.log("Successfully mapped regex-extracted JSON");
+        return cocktails;
       } catch (e) {
-        console.error("Regex extraction failed:", e.message);
+        console.error("Regex JSON extraction failed:", e.message);
       }
+    } else {
+      console.log("No JSON array pattern found in content");
     }
-    
-    // If still no JSON, try the old regex approach for non-JSON formatted responses
-    const cocktails = [];
-    const cocktailRegex = /(?:^|\n)#+\s*(.*?)(?:\n|$)/g;
+  } catch (regexError) {
+    console.warn("Regex extraction error:", regexError.message);
+  }
+  
+  // Method 3: Try to parse markdown-style cocktail recipes
+  try {
+    console.log("Attempting markdown-style parsing");
+    // Look for cocktail names with markdown headers or numbered lists
+    const cocktailRegex = /(?:^|\n)(?:#+\s*|\d+\.\s*)(.*?)(?:\n|$)/g;
     const cocktailMatches = [...content.matchAll(cocktailRegex)];
+    console.log("Found", cocktailMatches.length, "potential cocktail headers");
 
     cocktailMatches.forEach((match, index) => {
       const name = match[1].trim();
+      if (!name || name.length < 3) return; // Skip very short names
+      
       const startIndex = match.index + match[0].length;
       const endIndex = index < cocktailMatches.length - 1 ? cocktailMatches[index + 1].index : content.length;
       const cocktailContent = content.substring(startIndex, endIndex).trim();
+      console.log(`Processing cocktail: ${name}, content length: ${cocktailContent.length} chars`);
 
-      // Extract ingredients
-      const ingredientsMatch = cocktailContent.match(/(?:ingredients|you'll need):(.*?)(?:instructions|directions|method|preparation|steps)/is);
-      const ingredients = ingredientsMatch 
-        ? ingredientsMatch[1].split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.match(/^[-*•]/))
-            .map(line => {
-              const cleanedLine = line.replace(/^[-*•]\s*/, '');
-              return cleanedLine;
-            })
-        : [];
+      // Extract ingredients - look for ingredients section or list items
+      let ingredients = [];
+      const ingredientsSection = cocktailContent.match(/(?:ingredients|you'll need|you will need)\s*:?\s*(.*?)(?:(?:instructions|directions|method|preparation|steps)\s*:|$)/is);
+      
+      if (ingredientsSection && ingredientsSection[1]) {
+        // Split by newlines and/or bullet points
+        ingredients = ingredientsSection[1].split(/\n|\r/)
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+          .map(line => line.replace(/^[-*•⁃◦‣⦿⁌⁍⦾⦿⧆⧇⧈⧠]\s*/, '').trim())
+          .filter(line => line.length > 0);
+      } else {
+        // Try to find bullet points or numbered lists anywhere in the content
+        const bulletItems = [...cocktailContent.matchAll(/[-*•⁃◦‣⦿⁌⁍⦾⦿⧆⧇⧈⧠]\s*([^\n]+)/g)];
+        const numberedItems = [...cocktailContent.matchAll(/\d+\.\s*([^\n]+)/g)];
+        
+        const allItems = [...bulletItems, ...numberedItems].map(m => m[1].trim());
+        if (allItems.length > 0) {
+          ingredients = allItems;
+        }
+      }
+      
+      console.log(`Found ${ingredients.length} ingredients for ${name}`);
 
       // Extract instructions
-      const instructionsMatch = cocktailContent.match(/(?:instructions|directions|method|preparation|steps):(.*?)(?:\n\n|$)/is);
-      const instructions = instructionsMatch ? instructionsMatch[1].trim() : cocktailContent;
-
-      cocktails.push({
-        id: `custom-${index + 1}`,
-        name,
-        ingredients: ingredients,
-        instructions: instructions,
-        custom: true
-      });
-  });
-
-    // Last resort: Return a default response if all parsing methods fail
-    if (cocktails.length === 0) {
-      console.error("All parsing methods failed, returning default response");
-      return [
-        {
-          id: "custom-default",
-          name: "Default Cocktail",
-          ingredients: ["Use the ingredients you have available"],
-          instructions: "Mix all ingredients together. We couldn't parse the AI response properly.",
+      let instructions = "";
+      const instructionsMatch = cocktailContent.match(/(?:instructions|directions|method|preparation|steps)\s*:?\s*(.*?)(?:\n\n|$)/is);
+      
+      if (instructionsMatch && instructionsMatch[1]) {
+        instructions = instructionsMatch[1].trim();
+      } else {
+        // If no explicit instructions section, use remaining content after removing ingredients
+        instructions = cocktailContent;
+        ingredients.forEach(ingredient => {
+          instructions = instructions.replace(ingredient, "");
+        });
+        instructions = instructions.replace(/(?:ingredients|you'll need)\s*:?/i, "").trim();
+      }
+      
+      // Only add if we have at least a name and some content
+      if (name && (ingredients.length > 0 || instructions.length > 10)) {
+        cocktails.push({
+          id: `custom-${index + 1}`,
+          name,
+          ingredients: ingredients.length > 0 ? ingredients : ["Ingredients not clearly specified"],
+          instructions: instructions || "Instructions not provided",
           custom: true
+        });
+        console.log(`Added cocktail: ${name} with ${ingredients.length} ingredients`);
+      }
+    });
+
+    if (cocktails.length > 0) {
+      console.log("Successfully parsed", cocktails.length, "cocktails using markdown approach");
+      return cocktails;
+    }
+  } catch (markdownError) {
+    console.error("Markdown parsing error:", markdownError);
+  }
+  
+  // Method 4: Last resort - try to extract any cocktail-like information
+  try {
+    console.log("Attempting last-resort extraction");
+    // Look for patterns like "Cocktail Name:" or "Cocktail Name -"
+    const lastResortRegex = /([A-Z][\w\s'&]+)(?::|-)\s*([\s\S]*?)(?=(?:[A-Z][\w\s'&]+)(?::|-)|
+
+|$)/g;
+    const matches = [...content.matchAll(lastResortRegex)];
+    
+    if (matches.length > 0) {
+      console.log("Found", matches.length, "potential cocktails in last resort parsing");
+      matches.forEach((match, index) => {
+        const name = match[1].trim();
+        const details = match[2].trim();
+        
+        if (name && details && name.length > 3 && details.length > 10) {
+          cocktails.push({
+            id: `custom-${index + 1}`,
+            name,
+            ingredients: ["Extracted from text"],
+            instructions: details,
+            custom: true
+          });
         }
-      ];
+      });
     }
     
-    return cocktails;
+    if (cocktails.length > 0) {
+      console.log("Successfully extracted", cocktails.length, "cocktails using last resort method");
+      return cocktails;
+    }
+  } catch (lastResortError) {
+    console.error("Last resort parsing error:", lastResortError);
   }
+
+  // If all methods fail, return default response
+  console.error("All parsing methods failed, returning default response");
+  console.error("Raw content that couldn't be parsed:", content);
+  return [
+    {
+      id: "custom-default",
+      name: "Default Cocktail",
+      ingredients: ["Use the ingredients you have available"],
+      instructions: "Mix all ingredients together. We couldn't parse the AI response properly.",
+      custom: true
+    }
+  ];
 }

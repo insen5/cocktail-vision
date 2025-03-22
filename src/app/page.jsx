@@ -184,9 +184,19 @@ function MainComponent() {
           const data = await response.json();
           console.log("Image analysis API full response:", JSON.stringify(data));
           
-          // The server response should already have parsed ingredients
-          const detectedIngredients = data.ingredients || [];
-          console.log("Detected ingredients:", detectedIngredients);
+          // Extract ingredients from the response - handle different response formats
+          let detectedIngredients = [];
+          
+          if (data.ingredients && Array.isArray(data.ingredients)) {
+            // Original format
+            detectedIngredients = data.ingredients;
+          } else if (data.allDetected && Array.isArray(data.allDetected)) {
+            // New format from updated API
+            detectedIngredients = data.allDetected;
+          } else if (data.result && data.result.ingredients && Array.isArray(data.result.ingredients)) {
+            // Another possible format
+            detectedIngredients = data.result.ingredients;
+          }
           
           console.log("Detected ingredients:", detectedIngredients);
           
