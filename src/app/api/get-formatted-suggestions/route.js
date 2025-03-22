@@ -273,11 +273,11 @@ export async function POST(request) {
             messages: [
               {
                 role: "system",
-                content: "You are a professional bartender with expertise in creating custom cocktails. Create 2-3 unique cocktail recipes based on the available ingredients. Be creative but practical. Focus only on providing detailed recipes with ingredients, measurements, and instructions. Do not include any references to YouTube videos or tutorials."
+                content: "You are a professional bartender with expertise in creating custom cocktails. Create 2-3 unique cocktail recipes based on the available ingredients. Be creative but practical. IMPORTANT: Return your response in a structured JSON format with this exact schema: { \"cocktails\": [ { \"name\": \"Cocktail Name\", \"ingredients\": [ \"60 ml ingredient one\", \"30 ml ingredient two\", ... ], \"instructions\": [ \"Step 1: Do this\", \"Step 2: Do that\", ... ] } ] }. Use metric measurements only (ml, g, kg, l) - no imperial units like oz or cups. Do not include any additional text, markdown formatting, or explanations outside of the JSON structure."
               },
               {
                 role: "user",
-                content: `I have these ingredients available: ${ingredients.join(", ")}. What cocktails can I make? Please provide detailed recipes with measurements and instructions.`
+                content: `I have these ingredients available: ${ingredients.join(", ")}. What cocktails can I make? Return your response as a JSON object with the cocktails array. Each cocktail should have a name, an array of ingredients with measurements in metric units (ml, g, l), and an array of instruction steps. Do not include any explanatory text outside the JSON structure.`
               }
             ],
             temperature: 0.7,
@@ -332,11 +332,11 @@ export async function POST(request) {
             messages: [
               {
                 role: "system",
-                content: "You are a professional bartender with expertise in creating custom cocktails. Create 2-3 unique cocktail recipes based on the available ingredients. Format your response as a markdown document with a heading for each cocktail name, followed by an 'Ingredients:' section with a bulleted list, and an 'Instructions:' section with numbered steps. Be creative but practical."
+                content: "You are a professional bartender with expertise in creating custom cocktails. Create 2-3 unique cocktail recipes based on the available ingredients. IMPORTANT: Return your response in a structured JSON format with this exact schema: { \"cocktails\": [ { \"name\": \"Cocktail Name\", \"ingredients\": [ \"60 ml ingredient one\", \"30 ml ingredient two\", ... ], \"instructions\": [ \"Step 1: Do this\", \"Step 2: Do that\", ... ] } ] }. Use metric measurements only (ml, g, kg, l) - no imperial units like oz or cups. Do not include any additional text, markdown formatting, or explanations outside of the JSON structure."
               },
               {
                 role: "user",
-                content: `I have these ingredients available: ${ingredients.join(", ")}. What cocktails can I make? Please provide detailed recipes with measurements (preferably in ml not oz) and instructions.`
+                content: `I have these ingredients available: ${ingredients.join(", ")}. What cocktails can I make? Return your response as a JSON object with the cocktails array. Each cocktail should have a name, an array of ingredients with measurements in metric units (ml, g, l), and an array of instruction steps. Do not include any explanatory text outside the JSON structure.`
               }
             ]
           })
