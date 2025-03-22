@@ -114,7 +114,7 @@ async function analyzeWithClaude(imageBase64) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-3-opus-20240229",
+      model: "claude-3.7-sonnet-20240229",
       max_tokens: 300,
       messages: [
         {
