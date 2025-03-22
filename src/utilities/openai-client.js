@@ -1,46 +1,16 @@
-import { NextResponse } from 'next/server';
-
-export async function POST(request) {
-  try {
-    const requestData = await request.json();
-    const ingredients = requestData.ingredients || [];
-    
-    console.log("Custom suggestions API received request with ingredients:", ingredients);
-
-    if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
-      return NextResponse.json(
-        { error: "Ingredients must be a non-empty array" },
-        { status: 400 }
-      );
-    }
-
-    // Try to get suggestions from available AI providers
-    try {
-      // Try multiple providers with fallback mechanism
-      const suggestions = await getCustomSuggestions(ingredients);
-      return NextResponse.json({ suggestions });
-    } catch (error) {
-      console.error("All AI providers failed:", error);
-      return NextResponse.json(
-        { error: "Failed to generate custom suggestions", message: error.message },
-        { status: 500 }
-      );
-    }
-  } catch (error) {
-    console.error("Error processing request:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
-  }
-}
+// Multi-provider AI client utilities for cocktail suggestions
+// Supports Groq and Claude (Anthropic) with fallback mechanism
 
 /**
  * Get custom cocktail suggestions based on ingredients
  * @param {Array} ingredients - List of ingredients
  * @returns {Promise<Array>} - List of cocktail suggestions
  */
-async function getCustomSuggestions(ingredients) {
+export async function getCustomSuggestions(ingredients) {
+  if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+    throw new Error("Ingredients must be a non-empty array");
+  }
+
   // Try providers in sequence until one works
   const errors = [];
   
@@ -75,7 +45,7 @@ async function getCustomSuggestions(ingredients) {
  */
 async function getGroqSuggestions(ingredients) {
   // Check if API key is available
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
   if (!apiKey) {
     throw new Error("Missing Groq API key");
   }
@@ -126,7 +96,7 @@ async function getGroqSuggestions(ingredients) {
  */
 async function getClaudeSuggestions(ingredients) {
   // Check if API key is available
-  const apiKey = process.env.CLAUDE_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_CLAUDE_API_KEY;
   if (!apiKey) {
     throw new Error("Missing Claude API key");
   }
@@ -178,24 +148,20 @@ function parseAIResponse(content) {
     // Try to parse as JSON directly
     const parsedData = JSON.parse(content);
     if (Array.isArray(parsedData)) {
-      return parsedData.map((cocktail, index) => ({
-        id: `custom-${index + 1}`,
+      return parsedData.map(cocktail => ({
         name: cocktail.name || "Unknown Cocktail",
         ingredients: cocktail.ingredients || [],
-        instructions: cocktail.instructions || "",
-        custom: true
+        instructions: cocktail.instructions || ""
       }));
     }
     
     // If we got a JSON object but not an array
     if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) {
       if (parsedData.cocktails && Array.isArray(parsedData.cocktails)) {
-        return parsedData.cocktails.map((cocktail, index) => ({
-          id: `custom-${index + 1}`,
+        return parsedData.cocktails.map(cocktail => ({
           name: cocktail.name || "Unknown Cocktail",
           ingredients: cocktail.ingredients || [],
-          instructions: cocktail.instructions || "",
-          custom: true
+          instructions: cocktail.instructions || ""
         }));
       }
     }
@@ -213,70 +179,24 @@ function parseAIResponse(content) {
     if (match && match[0]) {
       try {
         const extractedJson = JSON.parse(match[0]);
-        return extractedJson.map((cocktail, index) => ({
-          id: `custom-${index + 1}`,
+        return extractedJson.map(cocktail => ({
           name: cocktail.name || "Unknown Cocktail",
           ingredients: cocktail.ingredients || [],
-          instructions: cocktail.instructions || "",
-          custom: true
+          instructions: cocktail.instructions || ""
         }));
       } catch (e) {
         console.error("Regex extraction failed:", e.message);
       }
     }
     
-    // If still no JSON, try the old regex approach for non-JSON formatted responses
-    const cocktails = [];
-    const cocktailRegex = /(?:^|\n)#+\s*(.*?)(?:\n|$)/g;
-    const cocktailMatches = [...content.matchAll(cocktailRegex)];
-
-    cocktailMatches.forEach((match, index) => {
-      const name = match[1].trim();
-      const startIndex = match.index + match[0].length;
-      const endIndex = index < cocktailMatches.length - 1 ? cocktailMatches[index + 1].index : content.length;
-      const cocktailContent = content.substring(startIndex, endIndex).trim();
-
-      // Extract ingredients
-      const ingredientsMatch = cocktailContent.match(/(?:ingredients|you'll need):(.*?)(?:instructions|directions|method|preparation|steps)/is);
-      const ingredients = ingredientsMatch 
-        ? ingredientsMatch[1].split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.match(/^[-*•]/))
-            .map(line => {
-              const cleanedLine = line.replace(/^[-*•]\s*/, '');
-              return cleanedLine;
-            })
-        : [];
-
-      // Extract instructions
-      const instructionsMatch = cocktailContent.match(/(?:instructions|directions|method|preparation|steps):(.*?)(?:\n\n|$)/is);
-      const instructions = instructionsMatch ? instructionsMatch[1].trim() : cocktailContent;
-
-      cocktails.push({
-        id: `custom-${index + 1}`,
-        name,
-        ingredients: ingredients,
-        instructions: instructions,
-        custom: true
-      });
-  });
-
-  return cocktails;
-  }
-  
-  // Last resort: Return a default response if all parsing methods fail
-  if (cocktails.length === 0) {
+    // Last resort: Return a default response
     console.error("All parsing methods failed, returning default response");
     return [
       {
-        id: "custom-default",
         name: "Default Cocktail",
         ingredients: ["Use the ingredients you have available"],
-        instructions: "Mix all ingredients together. We couldn't parse the AI response properly.",
-        custom: true
+        instructions: "Mix all ingredients together. We couldn't parse the AI response properly."
       }
     ];
   }
-  
-  return cocktails;
 }
