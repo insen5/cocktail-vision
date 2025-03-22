@@ -5,6 +5,28 @@ import { cocktails, allIngredients, findCocktails } from "../data/cocktails";
 import { saveIngredients, loadIngredients, saveFavorites, loadFavorites } from "../utilities/localStorage";
 // OpenAI client functionality is inlined to avoid import issues with Vercel deployment
 
+// Helper function to convert oz to ml in ingredient strings
+function convertOzToMl(text) {
+  if (!text) return text;
+  
+  // Match patterns like "2 oz", "1.5oz", "1/2 oz", etc.
+  return text.replace(/(\d+(?:\.\d+)?|\d+\/\d+)\s*oz\b/gi, (match, amount) => {
+    // Convert to number
+    let numOz;
+    if (amount.includes('/')) {
+      // Handle fractions like 1/2
+      const parts = amount.split('/');
+      numOz = parseFloat(parts[0]) / parseFloat(parts[1]);
+    } else {
+      numOz = parseFloat(amount);
+    }
+    
+    // Convert oz to ml (1 oz ≈ 30 ml)
+    const ml = Math.round(numOz * 30);
+    return `${ml} ml`;
+  });
+}
+
 // Custom suggestions helper function - uses server-side API for security
 async function getCustomSuggestions(ingredients) {
   if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
@@ -53,7 +75,7 @@ function MainComponent() {
   const [customSuggestions, setCustomSuggestions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("input");
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [userId, setUserId] = useState(
     `user-${Math.random().toString(36).substring(2, 9)}`
   );
@@ -138,6 +160,10 @@ function MainComponent() {
       document.body.removeChild(galleryInput);
     }, 1000);
   };
+  
+  const removeImagePreview = (index) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -149,7 +175,7 @@ function MainComponent() {
     try {
       // Create a URL for the image preview
       const imageUrl = URL.createObjectURL(file);
-      setImagePreview(imageUrl);
+      setImagePreviews(prev => [...prev, imageUrl]);
 
       // Read the file directly without uploading to server
       const reader = new FileReader();
@@ -293,7 +319,7 @@ function MainComponent() {
     setNewIngredient("");
     setRecommendations([]);
     setCustomSuggestions([]);
-    setImagePreview(null);
+    setImagePreviews([]);
     setActiveTab("input");
     setError(null);
     
@@ -401,19 +427,25 @@ function MainComponent() {
                     </span>
                   </button>
 
-                  {imagePreview && (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="Preview of bar ingredients"
-                        className="h-24 w-24 object-cover rounded-lg"
-                      />
-                      <button
-                        onClick={() => setImagePreview(null)}
-                        className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 flex items-center justify-center"
-                      >
-                        ×
-                      </button>
+                  {imagePreviews.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex flex-wrap gap-4">
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={preview}
+                              alt={`Preview of bar ingredients ${index + 1}`}
+                              className="h-24 w-24 object-cover rounded-lg"
+                            />
+                            <button
+                              onClick={() => removeImagePreview(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -545,23 +577,51 @@ function MainComponent() {
                                     
                                     if (typeof ingredient === 'string') {
                                       // If it's already a string, use it directly
-                                      formattedIngredient = ingredient;
+                                      // First clean up JSON formatting
+                                      formattedIngredient = ingredient
+                                        .replace(/\\n/g, '')
+                                        .replace(/\\r/g, '')
+                                        .replace(/\\t/g, ' ')
+                                        .replace(/\\'/g, "'")
+                                        .replace(/\\"/g, '"')
+                                        .replace(/"ingredients":/g, '')
+                                        .replace(/"whiskey":|"bitters":|"egg yolk":|"[a-z]+":/gi, '')
+                                        .replace(/\{|\}|\[|\]/g, '')
+                                        .replace(/,$/g, '')
+                                        .trim();
+                                        
+                                      // Then convert oz to ml
+                                      formattedIngredient = convertOzToMl(formattedIngredient);
                                     } else if (typeof ingredient === 'object') {
                                       // Handle objects with different property formats
                                       if (ingredient.name) {
                                         // Format: {name: "Vodka", amount: 2, unit: "oz"}
-                                        const amount = ingredient.amount || ingredient.measure || '';
-                                        const unit = ingredient.unit || '';
+                                        let amount = ingredient.amount || ingredient.measure || '';
+                                        let unit = ingredient.unit || '';
+                                        
+                                        // Convert oz to ml if needed
+                                        if (unit.toLowerCase() === 'oz' || unit.toLowerCase() === 'ounce' || unit.toLowerCase() === 'ounces') {
+                                          const ml = Math.round(parseFloat(amount) * 30);
+                                          amount = ml;
+                                          unit = 'ml';
+                                        }
+                                        
                                         formattedIngredient = `${amount} ${unit} ${ingredient.name}`.trim().replace(/\s+/g, ' ');
                                       } else if (ingredient.ingredient) {
                                         // Format: {ingredient: "Vodka", quantity: "2 oz"}
-                                        const quantity = ingredient.quantity || ingredient.amount || '';
+                                        let quantity = ingredient.quantity || ingredient.amount || '';
+                                        
+                                        // Convert oz to ml if present in quantity
+                                        if (typeof quantity === 'string' && quantity.toLowerCase().includes('oz')) {
+                                          quantity = convertOzToMl(quantity);
+                                        }
+                                        
                                         formattedIngredient = `${quantity} ${ingredient.ingredient}`.trim();
                                       } else {
                                         // If it's an object but doesn't match known formats, stringify it
                                         // But clean it up first by removing quotes and braces
                                         formattedIngredient = JSON.stringify(ingredient)
-                                          .replace(/[{}"\']/g, '')
+                                          .replace(/[{}"']/g, '')
                                           .replace(/,/g, ', ')
                                           .replace(/:/g, ': ');
                                       }
@@ -588,9 +648,49 @@ function MainComponent() {
                                 Instructions:
                               </h5>
                               <p className="text-white whitespace-pre-line">
-                                {cocktail.instructions}
+                                {typeof cocktail.instructions === 'string' 
+                                  ? cocktail.instructions
+                                      .replace(/\\n/g, '\n')
+                                      .replace(/\\r/g, '')
+                                      .replace(/\\t/g, ' ')
+                                      .replace(/\\'/g, "'")
+                                      .replace(/\\"/g, '"')
+                                      .replace(/Up"/g, '')
+                                      .replace(/Instructions:/gi, '')
+                                      .replace(/```/g, '')
+                                      .replace(/\{|\}/g, '')
+                                      .trim()
+                                  : 'Instructions not available'}
                               </p>
                             </div>
+                            
+                            {/* YouTube Tutorial Videos Section */}
+                            {cocktail.youtubeVideos && Array.isArray(cocktail.youtubeVideos) && cocktail.youtubeVideos.length > 0 && (
+                              <div className="mt-4">
+                                <h5 className="font-semibold mb-2 text-purple-300">
+                                  Video Tutorials:
+                                </h5>
+                                <div className="space-y-3">
+                                  {cocktail.youtubeVideos.slice(0, 2).map((video, videoIndex) => (
+                                    <div key={videoIndex} className="rounded-lg overflow-hidden">
+                                      <div className="relative pb-[56.25%] h-0 overflow-hidden bg-gray-800">
+                                        <iframe 
+                                          className="absolute top-0 left-0 w-full h-full" 
+                                          src={`https://www.youtube.com/embed/${video.id}`}
+                                          title={video.title || `${cocktail.name} Tutorial ${videoIndex + 1}`}
+                                          frameBorder="0" 
+                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                          allowFullScreen
+                                        ></iframe>
+                                      </div>
+                                      {video.title && (
+                                        <p className="text-sm text-gray-300 mt-1 px-1">{video.title}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}

@@ -45,17 +45,7 @@ async function getCustomSuggestions(ingredients) {
   // Try providers in sequence until one works
   const errors = [];
   
-  // Try Groq first (generous free tier available)
-  try {
-    const suggestions = await getGroqSuggestions(ingredients);
-    console.log("Successfully got suggestions from Groq");
-    return suggestions;
-  } catch (error) {
-    console.warn("Groq API failed:", error.message);
-    errors.push(`Groq: ${error.message}`);
-  }
-  
-  // Try Claude second
+  // Try Claude first (better for providing YouTube links)
   try {
     const suggestions = await getClaudeSuggestions(ingredients);
     console.log("Successfully got suggestions from Claude");
@@ -63,6 +53,16 @@ async function getCustomSuggestions(ingredients) {
   } catch (error) {
     console.warn("Claude API failed:", error.message);
     errors.push(`Claude: ${error.message}`);
+  }
+  
+  // Try Groq second
+  try {
+    const suggestions = await getGroqSuggestions(ingredients);
+    console.log("Successfully got suggestions from Groq");
+    return suggestions;
+  } catch (error) {
+    console.warn("Groq API failed:", error.message);
+    errors.push(`Groq: ${error.message}`);
   }
   
   // If all APIs fail, throw a comprehensive error
@@ -94,15 +94,19 @@ async function getGroqSuggestions(ingredients) {
         {
           role: "system",
           content: `You are a professional bartender with extensive knowledge of cocktails and mixology. 
-          Your task is to suggest creative cocktail recipes based on the ingredients provided.`
+          Your task is to suggest creative cocktail recipes based on the ingredients provided.
+          IMPORTANT: Always use metric measurements in milliliters (ml) instead of fluid ounces (oz). For example, use '60 ml' instead of '2 oz'.`
         },
         {
           role: "user",
           content: `I have these ingredients: ${ingredients.join(', ')}. 
           Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
-          that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
-          preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
-          and 'instructions' fields.`
+          that most people would have. For each cocktail, provide a name, ingredients with measurements in MILLILITERS (ml) NOT ounces, brief 
+          preparation instructions, and TWO relevant YouTube video IDs for tutorials of the cocktail.
+          
+          Format your response as a JSON array with objects containing 'name', 'ingredients', 'instructions', and 'youtubeVideos' fields. The 'youtubeVideos' field should be an array containing exactly 2 objects, each with 'id' and 'title' properties.
+          
+          For the YouTube video IDs, provide ONLY the ID portion (not the full URL) of actual, real YouTube videos for cocktail tutorials that are likely to exist. For example, if the full URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID. The title should be a brief description of the video.`
         }
       ],
       temperature: 0.7,
@@ -151,12 +155,17 @@ async function getClaudeSuggestions(ingredients) {
           role: "user",
           content: `You are a professional bartender with extensive knowledge of cocktails and mixology.
           
+          IMPORTANT: Always use metric measurements in milliliters (ml) instead of fluid ounces (oz). For example, use '60 ml' instead of '2 oz'.
+          
           I have these ingredients: ${ingredients.join(', ')}. 
           
           Suggest 3 cocktails I can make with some or all of these ingredients, plus maybe 1-2 common ingredients 
-          that most people would have. For each cocktail, provide a name, ingredients with measurements, and brief 
-          preparation instructions. Format your response as a JSON array with objects containing 'name', 'ingredients', 
-          and 'instructions' fields.`
+          that most people would have. For each cocktail, provide a name, ingredients with measurements in MILLILITERS (ml) NOT ounces, brief 
+          preparation instructions, and TWO relevant YouTube video IDs for tutorials of the cocktail.
+          
+          Format your response as a JSON array with objects containing 'name', 'ingredients', 'instructions', and 'youtubeVideos' fields. The 'youtubeVideos' field should be an array containing exactly 2 objects, each with 'id' and 'title' properties.
+          
+          For the YouTube video IDs, provide ONLY the ID portion (not the full URL) of actual, real YouTube videos for cocktail tutorials that are likely to exist. For example, if the full URL is 'https://www.youtube.com/watch?v=abc123', only include 'abc123' as the ID. The title should be a brief description of the video.`
         }
       ]
     })
@@ -200,6 +209,7 @@ function parseAIResponse(content) {
         name: cocktail.name || "Unknown Cocktail",
         ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
         instructions: cocktail.instructions || "",
+        youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
         custom: true
       }));
       console.log("Successfully mapped array data to cocktails");
@@ -215,6 +225,7 @@ function parseAIResponse(content) {
           name: cocktail.name || "Unknown Cocktail",
           ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
           instructions: cocktail.instructions || "",
+          youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
           custom: true
         }));
         console.log("Successfully mapped nested cocktails array");
@@ -229,6 +240,7 @@ function parseAIResponse(content) {
           name: parsedData.name,
           ingredients: Array.isArray(parsedData.ingredients) ? parsedData.ingredients : [parsedData.ingredients],
           instructions: parsedData.instructions || "",
+          youtubeVideos: Array.isArray(parsedData.youtubeVideos) ? parsedData.youtubeVideos.slice(0, 2) : [],
           custom: true
         }];
         console.log("Successfully created cocktail from single object");
@@ -257,6 +269,7 @@ function parseAIResponse(content) {
           name: cocktail.name || "Unknown Cocktail",
           ingredients: Array.isArray(cocktail.ingredients) ? cocktail.ingredients : [cocktail.ingredients],
           instructions: cocktail.instructions || "",
+          youtubeVideos: Array.isArray(cocktail.youtubeVideos) ? cocktail.youtubeVideos.slice(0, 2) : [],
           custom: true
         }));
         console.log("Successfully mapped regex-extracted JSON");
