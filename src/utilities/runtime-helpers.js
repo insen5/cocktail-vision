@@ -29,66 +29,58 @@ function useHandleStreamResponse({
   return handleStreamResponse;
 }
 
-function useUpload() {
-  const [loading, setLoading] = React.useState(false);
-  const upload = React.useCallback(async (input) => {
-    try {
-      setLoading(true);
-      let response;
-      if ("file" in input) {
-        const formData = new FormData();
-        formData.append("file", input.file);
-        response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData
-        });
-      } else if ("url" in input) {
-        response = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ url: input.url })
-        });
-      } else if ("base64" in input) {
-        response = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ base64: input.base64 })
-        });
-      } else {
-        response = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/octet-stream"
-          },
-          body: input.buffer
-        });
-      }
-      if (!response.ok) {
-        if (response.status === 413) {
-          throw new Error("Upload failed: File too large.");
-        }
-        throw new Error("Upload failed");
-      }
-      const data = await response.json();
-      return { url: data.url, mimeType: data.mimeType || null };
-    } catch (uploadError) {
-      if (uploadError instanceof Error) {
-        return { error: uploadError.message };
-      }
-      if (typeof uploadError === "string") {
-        return { error: uploadError };
-      }
-      return { error: "Upload failed" };
-    } finally {
-      setLoading(false);
+function useUpload({ onUploadStart, onUploadComplete, onUploadError }) {
+  const [isUploading, setIsUploading] = React.useState(false);
+  
+  const uploadImage = React.useCallback(async (file) => {
+    if (!file) {
+      console.error("No file provided");
+      if (onUploadError) onUploadError("No file provided");
+      return;
     }
-  }, []);
-
-  return [upload, { loading }];
+    
+    try {
+      setIsUploading(true);
+      if (onUploadStart) onUploadStart();
+      
+      // Convert the file to base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      // Send the base64 image to the analyze-image API
+      const response = await fetch("/api/analyze-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageBase64: base64 }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Image analysis failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Image analysis response:", data);
+      
+      if (onUploadComplete) {
+        onUploadComplete(data.allDetected || []);
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      if (onUploadError) {
+        onUploadError(error.message || "Failed to analyze image");
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  }, [onUploadStart, onUploadComplete, onUploadError]);
+  
+  return { uploadImage, isUploading };
 }
 
 export {
