@@ -15,27 +15,12 @@ export async function POST(request) {
       );
     }
 
-    // First try with Groq API
+    // First try with Claude API (primary)
     let ingredients = [];
     let success = false;
     
-    // Check if Groq API key is available
-    if (process.env.GROQ_API_KEY) {
-      try {
-        console.log("Attempting to analyze image with Groq API");
-        ingredients = await analyzeWithGroq(imageBase64);
-        success = true;
-        console.log("Successfully analyzed image with Groq API");
-      } catch (groqError) {
-        console.error("Error with Groq API:", groqError.message);
-        // Continue to fallback
-      }
-    } else {
-      console.warn("Groq API key not configured");
-    }
-    
-    // Fallback to Claude if Groq failed
-    if (!success && process.env.CLAUDE_API_KEY) {
+    // Check if Claude API key is available
+    if (process.env.CLAUDE_API_KEY) {
       try {
         console.log("Attempting to analyze image with Claude API");
         ingredients = await analyzeWithClaude(imageBase64);
@@ -43,9 +28,24 @@ export async function POST(request) {
         console.log("Successfully analyzed image with Claude API");
       } catch (claudeError) {
         console.error("Error with Claude API:", claudeError.message);
+        // Continue to fallback
+      }
+    } else {
+      console.warn("Claude API key not configured");
+    }
+    
+    // Fallback to Groq if Claude failed
+    if (!success && process.env.GROQ_API_KEY) {
+      try {
+        console.log("Attempting to analyze image with Groq API");
+        ingredients = await analyzeWithGroq(imageBase64);
+        success = true;
+        console.log("Successfully analyzed image with Groq API");
+      } catch (groqError) {
+        console.error("Error with Groq API:", groqError.message);
       }
     } else if (!success) {
-      console.warn("Claude API key not configured for fallback");
+      console.warn("Groq API key not configured for fallback");
     }
     
     if (!success) {
@@ -80,11 +80,11 @@ async function analyzeWithGroq(imageBase64) {
       messages: [
         {
           role: "system",
-          content: "You are a precise visual identification assistant that identifies cocktail ingredients from images. Your task is to identify ONLY items that are clearly and unequivocally visible in the image. Include brand names when visible (e.g., 'Absolut Vodka' rather than just 'vodka'). If the image shows a bar shelf, identify specific brands and beverages. If it shows a kitchen or fridge, identify food items like lime, salt, Coca-Cola, ginger ale, etc. NEVER invent or guess ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas."
+          content: "You are a helpful assistant that identifies cocktail ingredients from images. Your task is to identify specific ingredients and brands that you can confidently recognize in the image. Include brand names when possible and be reasonably confident in your identifications, but you can include ingredients that are partially visible or somewhat obscured. Do not include completely random ingredients with no visual basis. List ingredients separated by commas."
         },
         {
           role: "user",
-          content: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify ONLY the ingredients that are clearly visible in the image. Be extremely precise and include brand names when visible (e.g., 'Bombay Sapphire Gin' not just 'gin'). If you see a bar shelf, identify specific brands and beverages. If you see a kitchen or fridge, identify specific food items like 'Fresh lime', 'Morton Salt', 'Coca-Cola', etc. DO NOT guess or invent ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas. If you're uncertain about an item, do not include it.`
+          content: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify specific ingredients and brands that you can confidently recognize in the image. Include full brand names when you can identify them (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka'). For bar shelves, identify bottles with their brand names when possible. For kitchen/fridge items, identify food items with their brands when visible. You can include ingredients you're reasonably confident about, even if they're partially visible or somewhat obscured. DO NOT include completely random ingredients with no visual basis. Respond ONLY with a comma-separated list of ingredients.`
         }
       ],
       max_tokens: 300
@@ -122,7 +122,31 @@ async function analyzeWithClaude(imageBase64) {
           content: [
             {
               type: "text",
-              text: `This is an image of ingredients that could be used for cocktails (base64 encoded): ${imageBase64.substring(0, 100)}... [truncated]. Please identify ONLY the ingredients that are clearly visible in the image. Be extremely precise and include brand names when visible (e.g., 'Bombay Sapphire Gin' not just 'gin'). If you see a bar shelf, identify specific brands and beverages. If you see a kitchen or fridge, identify specific food items like 'Fresh lime', 'Morton Salt', 'Coca-Cola', etc. DO NOT guess or invent ingredients that aren't clearly visible. List only the ingredients you can confidently identify, separated by commas. If you're uncertain about an item, do not include it.`
+              text: `Your task is to identify specific ingredients and brands that you can confidently recognize in the image. This is for a cocktail recipe app, so accuracy is important, but we want to include all relevant ingredients you can identify with reasonable confidence.
+
+Rules to follow:
+1. Include full brand names when you can identify them (e.g., 'Bombay Sapphire Gin', 'Absolut Vodka', 'Fever-Tree Tonic Water')
+2. For bar shelves: Identify bottles with their brand names and types when possible
+3. For kitchen/fridge: Identify food items with their brands when visible
+4. Include descriptive details when relevant (e.g., 'Fresh lime', 'Maraschino cherries', 'Angostura bitters')
+5. You can include ingredients you're reasonably confident about, even if they're partially visible or somewhat obscured
+6. DO NOT include completely random ingredients or pure guesses with no visual basis
+7. Respond ONLY with a comma-separated list of ingredients - no explanations or other text
+
+Examples of good responses:
+- "Tanqueray Gin, Fever-Tree Tonic Water, Fresh lime, Ice cubes"
+- "Maker's Mark Bourbon, Angostura bitters, Sugar cubes, Luxardo Maraschino cherries"
+- "Coca-Cola, Bacardi White Rum, Fresh mint leaves, Lime wedges"
+
+Now, list the ingredients you can confidently identify in the image, separated by commas.`
+            },
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: imageBase64
+              }
             }
           ]
         }
@@ -160,14 +184,28 @@ function parseIngredientsFromResponse(content) {
     if (jsonMatch) {
       ingredients = JSON.parse(jsonMatch[0]);
     } else {
-      // Otherwise split by commas or newlines
-      ingredients = content
+      // First, clean up the content by removing any explanatory text
+      // Claude sometimes adds explanations despite instructions not to
+      let cleanedContent = content;
+      
+      // Remove any text before a list if it exists
+      const listMarkers = ['ingredients:', 'ingredients i can see:', 'visible ingredients:', 'i can see:'];
+      for (const marker of listMarkers) {
+        const markerIndex = cleanedContent.toLowerCase().indexOf(marker);
+        if (markerIndex !== -1) {
+          cleanedContent = cleanedContent.substring(markerIndex + marker.length);
+          break;
+        }
+      }
+      
+      // Split by commas or newlines
+      ingredients = cleanedContent
         .split(/,|\n/)
         .map((item) => item.trim())
         .filter((item) => {
           // Only keep actual ingredients, filter out AI responses and sentences
           return item.length > 0 && 
-            // Filter out common AI responses
+            // Filter out common AI responses and explanatory text
             !item.toLowerCase().includes("i don't see") &&
             !item.toLowerCase().includes("cannot identify") &&
             !item.toLowerCase().includes("i can help") &&
@@ -179,15 +217,20 @@ function parseIngredientsFromResponse(content) {
             !item.toLowerCase().includes("following ingredients") &&
             !item.toLowerCase().includes("let me know") &&
             !item.toLowerCase().includes("need more") &&
-            // Filter out sentences (more than 3 words)
-            item.split(/\s+/).length <= 3;
+            !item.toLowerCase().includes("visible in the image") &&
+            !item.toLowerCase().includes("that's all") &&
+            !item.toLowerCase().includes("that i can") &&
+            // Filter out sentences (more than 4 words) but allow longer brand names
+            (item.split(/\s+/).length <= 4 || item.toLowerCase().includes("fever-tree") || 
+             item.toLowerCase().includes("maker's mark") || item.toLowerCase().includes("bombay sapphire"));
         })
         .map((item) => {
           // Clean up any remaining formatting
           return item
-            .replace(/^[\s\u2022\-\u2013\u2014*]+|^[0-9]+\.?\s*/g, "")
+            .replace(/^[\s\u2022\-\u2013\u2014*•]+|^[0-9]+\.?\s*/g, "") // Remove bullets, dashes, and numbering
             .replace(/\.$/, "") // Remove trailing periods
-            .toLowerCase(); // Normalize to lowercase
+            .replace(/^"(.*)"$/, "$1") // Remove surrounding quotes if present
+            .trim(); // Ensure no leading/trailing whitespace
         });
     }
     
