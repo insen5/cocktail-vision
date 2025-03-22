@@ -352,9 +352,7 @@ function parseAIResponse(content) {
   try {
     console.log("Attempting last-resort extraction");
     // Look for patterns like "Cocktail Name:" or "Cocktail Name -"
-    const lastResortRegex = /([A-Z][\w\s'&]+)(?::|-)\s*([\s\S]*?)(?=(?:[A-Z][\w\s'&]+)(?::|-)|
-
-|$)/g;
+    const lastResortRegex = /([A-Z][\w\s'&]+)(?::|-)\s*([\s\S]*?)(?=(?:[A-Z][\w\s'&]+)(?::|-)|\\n\\n|$)/g;
     const matches = [...content.matchAll(lastResortRegex)];
     
     if (matches.length > 0) {
