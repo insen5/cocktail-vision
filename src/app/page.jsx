@@ -32,7 +32,14 @@ async function getCustomSuggestions(ingredients) {
     }
 
     const data = await response.json();
-    return data.suggestions || [];
+    console.log("API response data:", JSON.stringify(data));
+    
+    if (!data.suggestions) {
+      console.warn("API response missing suggestions array");
+      return [];
+    }
+    
+    return data.suggestions;
   } catch (error) {
     console.error("Error in getCustomSuggestions:", error);
     throw error;

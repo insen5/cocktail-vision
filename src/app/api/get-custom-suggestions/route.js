@@ -18,6 +18,7 @@ export async function POST(request) {
     try {
       // Try multiple providers with fallback mechanism
       const suggestions = await getCustomSuggestions(ingredients);
+      console.log("Generated suggestions:", JSON.stringify(suggestions));
       return NextResponse.json({ suggestions });
     } catch (error) {
       console.error("All AI providers failed:", error);
@@ -116,7 +117,10 @@ async function getGroqSuggestions(ingredients) {
   }
 
   const data = await response.json();
-  return parseAIResponse(data.choices[0]?.message?.content || "");
+  console.log("Groq API raw response:", JSON.stringify(data));
+  const content = data.choices[0]?.message?.content || "";
+  console.log("Groq content to parse:", content);
+  return parseAIResponse(content);
 }
 
 /**
@@ -165,7 +169,10 @@ async function getClaudeSuggestions(ingredients) {
   }
 
   const data = await response.json();
-  return parseAIResponse(data.content[0]?.text || "");
+  console.log("Claude API raw response:", JSON.stringify(data));
+  const content = data.content[0]?.text || "";
+  console.log("Claude content to parse:", content);
+  return parseAIResponse(content);
 }
 
 /**
@@ -261,22 +268,20 @@ function parseAIResponse(content) {
       });
   });
 
-  return cocktails;
+    // Last resort: Return a default response if all parsing methods fail
+    if (cocktails.length === 0) {
+      console.error("All parsing methods failed, returning default response");
+      return [
+        {
+          id: "custom-default",
+          name: "Default Cocktail",
+          ingredients: ["Use the ingredients you have available"],
+          instructions: "Mix all ingredients together. We couldn't parse the AI response properly.",
+          custom: true
+        }
+      ];
+    }
+    
+    return cocktails;
   }
-  
-  // Last resort: Return a default response if all parsing methods fail
-  if (cocktails.length === 0) {
-    console.error("All parsing methods failed, returning default response");
-    return [
-      {
-        id: "custom-default",
-        name: "Default Cocktail",
-        ingredients: ["Use the ingredients you have available"],
-        instructions: "Mix all ingredients together. We couldn't parse the AI response properly.",
-        custom: true
-      }
-    ];
-  }
-  
-  return cocktails;
 }
