@@ -14,6 +14,17 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+    
+    // Check if the image is too large (rough estimate based on base64 string length)
+    // Base64 encoding increases size by ~33%, so 8MB file becomes ~10.7MB string
+    const MAX_BASE64_LENGTH = 11 * 1024 * 1024; // ~11MB
+    if (imageBase64.length > MAX_BASE64_LENGTH) {
+      console.error(`Image too large: ${Math.round(imageBase64.length / (1024 * 1024))}MB base64 data`);
+      return NextResponse.json(
+        { error: "Image too large. Please use a smaller image or try again with a different photo.", allDetected: [] },
+        { status: 413 }
+      );
+    }
 
     // First try with Groq API (primary)
     let ingredients = [];
@@ -60,10 +71,27 @@ export async function POST(request) {
       allDetected: ingredients
     });
   } catch (error) {
+    // Log detailed error information
     console.error("Error analyzing image:", error);
+    
+    // Check for specific error types
+    let errorMessage = "Failed to analyze image";
+    let statusCode = 500;
+    
+    if (error.message && error.message.includes("too large")) {
+      errorMessage = "Image too large. Please use a smaller image.";
+      statusCode = 413;
+    } else if (error.message && error.message.includes("timeout")) {
+      errorMessage = "Analysis timed out. Please try again with a simpler image.";
+      statusCode = 408;
+    } else if (error.message && error.message.includes("parse")) {
+      errorMessage = "Failed to process image data. Please try a different format.";
+      statusCode = 422;
+    }
+    
     return NextResponse.json(
-      { error: "Failed to analyze image", allDetected: [] },
-      { status: 500 }
+      { error: errorMessage, allDetected: [] },
+      { status: statusCode }
     );
   }
 }
